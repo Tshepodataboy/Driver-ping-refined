@@ -73,6 +73,45 @@ async function runTests() {
     'SECURITY: Arbitrary user ID request to /auth/demo-login is rejected with 403 Forbidden'
   );
 
+  // 4b. Login with non-existent email test:
+  const nonExistentEmailRes = await fetch(`${BASE_URL}/auth/email-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: `nonexistent_${Date.now()}@driverping.co.za`, password: 'Password123!', mode: 'signin' }),
+  });
+  const nonExistentEmailData = await nonExistentEmailRes.json();
+  if (nonExistentEmailRes.status !== 404) {
+    console.error('Test 4b returned status:', nonExistentEmailRes.status, nonExistentEmailData);
+  }
+  assert(
+    nonExistentEmailRes.status === 404 && Boolean(nonExistentEmailData.error?.includes('No account exists with this email address')),
+    'AUTH: Login with non-existent email returns 404 with email not found notice'
+  );
+
+  // Sign up a fresh test user to test wrong password logic
+  const testEmail = `test_user_${Date.now()}@driverping.co.za`;
+  const testPass = 'CorrectPassword123!';
+  await fetch(`${BASE_URL}/auth/email-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: testEmail, password: testPass, mode: 'signup', fullName: 'Test Driver' }),
+  });
+
+  // 4c. Login with existing email but incorrect password test:
+  const wrongPasswordRes = await fetch(`${BASE_URL}/auth/email-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: testEmail, password: 'WrongPassword999!', mode: 'signin' }),
+  });
+  const wrongPasswordData = await wrongPasswordRes.json();
+  if (wrongPasswordRes.status !== 401) {
+    console.error('Test 4c returned status:', wrongPasswordRes.status, wrongPasswordData);
+  }
+  assert(
+    wrongPasswordRes.status === 401 && Boolean(wrongPasswordData.error?.includes('Incorrect password')),
+    'AUTH: Login with incorrect password returns 401 with wrong password notice'
+  );
+
   // 5. Predefined Demo Login Test:
   const alexLoginRes = await fetch(`${BASE_URL}/auth/demo-login`, {
     method: 'POST',
@@ -175,8 +214,9 @@ async function runTests() {
   const jordanToken = jordanData.token;
   assert(Boolean(jordanToken), 'E2E [Step 1]: Reporter (Jordan Lee) signs in');
 
-  // Step B: Jordan submits report for Alex Morgan's vehicle (CK 45 DF GP)
+  // Step B: Jordan submits report for Alex Morgan's vehicle (CK 45 DF GP) with attached photo
   const e2eIssueCode = `taillight_${Date.now()}`;
+  const testPhotoUrl = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...';
   const e2eReportRes = await fetch(`${BASE_URL}/reports`, {
     method: 'POST',
     headers: {
@@ -189,6 +229,7 @@ async function runTests() {
       issueCode: e2eIssueCode,
       issueTitle: 'Rear right taillight out',
       customNote: 'Observed right brake lamp not functioning at intersection.',
+      photoUrl: testPhotoUrl,
       idempotencyKey: `e2e_${Date.now()}`,
     }),
   });
@@ -196,18 +237,18 @@ async function runTests() {
   const reportId = e2eReportData.reportId;
   assert(
     e2eReportRes.ok && Boolean(reportId),
-    'E2E [Step 2]: Reporter submits vehicle condition observation for CK 45 DF GP'
+    'E2E [Step 2]: Reporter submits vehicle condition observation for CK 45 DF GP with photo'
   );
 
-  // Step C: Vehicle owner (Alex Morgan) fetches alerts and sees the new report
+  // Step C: Vehicle owner (Alex Morgan) fetches alerts and sees the new report with attached photo shared
   const alexAlertsRes = await fetch(`${BASE_URL}/alerts`, {
     headers: { Authorization: `Bearer ${alexToken}` },
   });
   const alexAlertsData = await alexAlertsRes.json();
   const matchingAlert = alexAlertsData.alerts?.find((a: any) => a.id === reportId);
   assert(
-    Boolean(matchingAlert),
-    'E2E [Step 3]: Vehicle owner (Alex Morgan) immediately sees alert in their alerts feed'
+    Boolean(matchingAlert) && matchingAlert.photoUrl === testPhotoUrl,
+    'E2E [Step 3]: Vehicle owner (Alex Morgan) receives report with shared attached photo in alert feed'
   );
 
   // Step D: Vehicle owner resolves the alert

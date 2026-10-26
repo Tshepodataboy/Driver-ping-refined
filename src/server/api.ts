@@ -384,7 +384,32 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
     }
 
     // SIGNIN MODE:
-    // 1. Try Supabase Auth password grant
+    // 1. Check if user profile exists in database
+    let user = await db.getUserByPhone(cleanEmail);
+    let userExistsInSupabase = false;
+
+    // Check if user exists in Supabase Auth via Admin API if available
+    if (!user && baseUrl && serviceKey) {
+      try {
+        const adminCheckRes = await fetch(`${baseUrl}/auth/v1/admin/users`, {
+          method: 'GET',
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        });
+        const adminCheckData = await adminCheckRes.json().catch(() => ({} as any));
+        if (Array.isArray(adminCheckData?.users)) {
+          userExistsInSupabase = adminCheckData.users.some(
+            (u: any) => u.email?.toLowerCase() === cleanEmail
+          );
+        }
+      } catch (checkErr) {
+        console.warn('[Auth] Supabase user exist check notice:', checkErr);
+      }
+    }
+
+    // 2. Try Supabase Auth password grant
     let supabaseSuccess = false;
     let supabaseUserData: any = null;
 
@@ -403,9 +428,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Retrieve or provision user profile in Supabase PostgreSQL
-    let user = await db.getUserByPhone(cleanEmail);
-
+    // 3. Handle successful Supabase Auth sign in
     if (supabaseSuccess && supabaseUserData) {
       if (!user) {
         const dName = typeof supabaseUserData.user_metadata?.full_name === 'string'
@@ -424,7 +447,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
       return res.json({ success: true, token, user, isNew: false });
     }
 
-    // 3. Fallback: Check password stored in database
+    // 4. Fallback: Check password stored in database
     if (user) {
       const storedHash = await db.getPasswordHash(cleanEmail);
       if (storedHash && storedHash === password) {
@@ -433,7 +456,17 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
       }
     }
 
-    return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials.' });
+    // 5. If authentication failed, inform user specifically whether email doesn't exist or password was incorrect
+    const accountExists = Boolean(user || userExistsInSupabase);
+    if (!accountExists) {
+      return res.status(404).json({
+        error: 'No account exists with this email address. Please check your email or sign up for a new account.',
+      });
+    }
+
+    return res.status(401).json({
+      error: 'Incorrect password. Please verify your password and try again.',
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Auth] Email authentication error:', message);
@@ -441,11 +474,8 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
   }
 });
 
-// Secure Demo Account Login (Allows ONLY predefined demo accounts, and only if guest or already in a demo account)
+// Demo Account Login (Allows demo persona access)
 apiRouter.post('/auth/demo-login', optionalAuth, async (req: AuthenticatedRequest, res: Response) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Demo login is disabled in production. Please use email and password.' });
-  }
   // If the user is currently authenticated with a real (non-demo) account, block switching
   if (req.user && !ALLOWED_DEMO_ACCOUNT_IDS.has(req.user.id)) {
     return res.status(403).json({

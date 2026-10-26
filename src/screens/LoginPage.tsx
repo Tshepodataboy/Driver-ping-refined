@@ -67,6 +67,11 @@ export function LoginPage() {
       return;
     }
 
+    if (!password) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
+
     setSubmitting(true);
     const res = await loginWithEmail(email.trim(), undefined, 'signin', password);
     setSubmitting(false);
@@ -553,7 +558,7 @@ export function LoginPage() {
           {/* ============================================================ */}
           {/* DEMO ACCESS SECTION */}
           {/* ============================================================ */}
-          {!import.meta.env.PROD && signupStep === 1 && (
+          {signupStep === 1 && (
             <div>
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">

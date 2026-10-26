@@ -27,7 +27,7 @@ const PROVINCES = [
 ];
 
 export function AuthModal() {
-  const { isAuthModalOpen, setIsAuthModalOpen, loginWithEmail, updateUserPreferences, registerVehicle } = useApp();
+  const { isAuthModalOpen, setIsAuthModalOpen, loginWithEmail, loginAsDemo, updateUserPreferences, registerVehicle } = useApp();
 
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
@@ -63,6 +63,11 @@ export function AuthModal() {
 
     if (!email.trim()) {
       setError('Please enter your registered email address.');
+      return;
+    }
+
+    if (!password) {
+      setError('Please enter your password.');
       return;
     }
 
@@ -496,6 +501,29 @@ export function AuthModal() {
                   )}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* Instant Demo Access Section */}
+          {signupStep === 1 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 text-center mb-2">
+                Instant Demo Access
+              </div>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={async () => {
+                  setIsLoading(true);
+                  await loginAsDemo('usr_alex_001');
+                  setIsLoading(false);
+                  handleClose();
+                }}
+                className="w-full py-2.5 px-3 bg-[#B81D39] hover:bg-[#9E142C] text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <span>Login as Demo Driver (Alex Morgan)</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </div>

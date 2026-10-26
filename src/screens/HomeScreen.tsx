@@ -135,20 +135,6 @@ export function HomeScreen() {
     <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-white">
       {/* 1. PRIMARY FLOATING WHITE HERO CARD - Compact & Sleek */}
       <div className="glass-card text-gray-950 rounded-[28px] px-4 py-3 crimson-card-shadow relative overflow-hidden text-center">
-        {/* Top Dark Capsule Pill */}
-        <div
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mx-auto mb-1.5 shadow-sm transition-all duration-200 relative z-10 ${
-            activeCategory
-              ? 'bg-[#0D1829] text-rose-300 ring-1 ring-rose-500/40'
-              : 'bg-[#0D1829] text-white'
-          }`}
-        >
-          {activeCategory && (
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-          )}
-          <span>{getPillLabel()}</span>
-        </div>
-
         {/* Hero Title */}
         <h1 className="text-lg font-black font-display tracking-tight text-gray-950 max-w-[270px] mx-auto leading-tight relative z-10">
           Smart vehicle alerts
