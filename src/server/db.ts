@@ -734,6 +734,8 @@ class DatabaseService {
     plan?: 'free' | 'paid_owner';
     smsOptIn?: boolean;
     smsMonthlyCapPence?: number;
+    defaultPlate?: string;
+    defaultProvinceCode?: string;
   }): Promise<DbUser> {
     await this.waitForInit();
     const id = data.id || `usr_${Date.now()}`;
@@ -743,14 +745,16 @@ class DatabaseService {
     const plan = data.plan || 'free';
     const smsOptIn = data.smsOptIn || false;
     const smsMonthlyCapPence = data.smsMonthlyCapPence || 500;
+    const defaultPlate = data.defaultPlate ? data.defaultPlate.trim().toUpperCase() : '';
+    const defaultProvinceCode = data.defaultProvinceCode ? data.defaultProvinceCode.trim().toUpperCase() : '';
     const now = new Date().toISOString();
 
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9)
+        `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11)
          RETURNING id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at`,
-        [id, cleanPhone, fullName, role, plan, smsOptIn, smsMonthlyCapPence, now, now]
+        [id, cleanPhone, fullName, role, plan, smsOptIn, smsMonthlyCapPence, defaultPlate, defaultProvinceCode, now, now]
       );
       return this.mapUserRow(res.rows[0]);
     }
@@ -764,6 +768,8 @@ class DatabaseService {
       smsOptIn,
       smsMonthlyCapPence,
       smsCurrentSpendPence: 0,
+      defaultPlate: defaultPlate || undefined,
+      defaultProvinceCode: defaultProvinceCode || undefined,
       createdAt: now,
       updatedAt: now,
     };

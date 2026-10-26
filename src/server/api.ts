@@ -278,7 +278,7 @@ async function supabaseAuthRequest(path: string, body: Record<string, unknown>) 
 }
 
 apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
-  const { email, password, fullName, mode } = req.body;
+  const { email, password, fullName, defaultPlate, defaultProvinceCode, mode } = req.body;
   const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
   if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) return res.status(400).json({ error: 'Enter a valid email address.' });
   if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -361,6 +361,8 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
           fullName: displayName,
           role: 'user',
           plan: 'free',
+          defaultPlate: typeof defaultPlate === 'string' ? defaultPlate : undefined,
+          defaultProvinceCode: typeof defaultProvinceCode === 'string' ? defaultProvinceCode : undefined,
         });
         await db.setPasswordHash(user.id, password);
         await db.createAuditLog({
