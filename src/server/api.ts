@@ -82,10 +82,6 @@ export async function authenticateUser(
   }
 
   const user = await db.getUserById(payload.sub);
-  if (process.env.NODE_ENV === 'production' && user && ['usr_alex_001', 'usr_jordan_002', 'usr_admin_003'].includes(user.id)) {
-    res.status(401).json({ error: 'Demo sessions are disabled in production. Please sign in with your account.' });
-    return;
-  }
   if (!user) {
     res.status(401).json({ error: 'User account not found.' });
     return;

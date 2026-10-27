@@ -174,14 +174,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const meRes = await fetch('/api/auth/me', { headers: getHeaders(token) });
       if (meRes.ok) {
         const meData = await meRes.json();
-        if (['usr_alex_001', 'usr_jordan_002', 'usr_admin_003'].includes(meData.user?.id)) {
-          localStorage.removeItem('driver_ping_token');
-          setAuthToken(null);
-          setUser(null);
-          setCurrentUserId('');
-          setIsLoading(false);
-          return;
-        }
         setUser(meData.user);
         setCurrentUserId(meData.user.id);
         await loadUserData(token);
@@ -211,15 +203,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
-      if (demoRes.ok) {
+      const contentType = demoRes.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
         const demoData = await demoRes.json();
-        setAuthToken(demoData.token);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('driver_ping_token', demoData.token);
+        if (demoRes.ok && demoData.token && demoData.user) {
+          setAuthToken(demoData.token);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('driver_ping_token', demoData.token);
+          }
+          setUser(demoData.user);
+          setCurrentUserId(demoData.user.id);
+          await loadUserData(demoData.token);
+        } else {
+          console.warn('Demo login failed:', demoData.error || 'Unknown error');
         }
-        setUser(demoData.user);
-        setCurrentUserId(demoData.user.id);
-        await loadUserData(demoData.token);
+      } else {
+        const text = await demoRes.text();
+        console.warn('Demo login returned non-JSON response:', text);
       }
     } catch (err) {
       console.error('Failed to log in as demo', err);
