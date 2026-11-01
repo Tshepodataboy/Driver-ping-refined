@@ -48,6 +48,10 @@ interface AppContextType {
   verifyOtp: (phone: string, code: string, fullName?: string) => Promise<{ success: boolean; error?: string }>;
   switchAccount: (userId: string) => Promise<void>;
   signOut: () => void;
+  isLogoutConfirmOpen: boolean;
+  setIsLogoutConfirmOpen: (open: boolean) => void;
+  confirmSignOut: () => void;
+  cancelSignOut: () => void;
   updateUserPreferences: (prefs: {
     smsOptIn?: boolean;
     smsMonthlyCapPence?: number;
@@ -128,6 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState<boolean>(false);
 
   // Demo account status check
   const isDemoAccount = Boolean(user && DEMO_USER_IDS.includes(user.id));
@@ -161,11 +166,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // If no token stored yet, present the Login Page
+    // If no token stored yet, auto-initialize with default demo driver (Alex Morgan)
     if (!token) {
-      setUser(null);
-      setCurrentUserId('');
-      setIsLoading(false);
+      await loginAsDemo('usr_alex_001');
       return;
     }
 
@@ -176,20 +179,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const meData = await meRes.json();
         setUser(meData.user);
         setCurrentUserId(meData.user.id);
-        await loadUserData(token);
+
+        // If the logged in session belongs to a demo account, refresh demo info
+        if (DEMO_USER_IDS.includes(meData.user.id)) {
+          await loginAsDemo(meData.user.id);
+        } else {
+          await loadUserData(token);
+        }
       } else {
-        // Token expired or invalid, reset session
+        // Token expired or invalid, reset session to default demo driver
         setAuthToken(null);
         if (typeof window !== 'undefined') {
           localStorage.removeItem('driver_ping_token');
         }
-        setUser(null);
-        setCurrentUserId('');
+        await loginAsDemo('usr_alex_001');
       }
     } catch (err) {
       console.error('Error validating session', err);
-      setUser(null);
-      setCurrentUserId('');
+      await loginAsDemo('usr_alex_001');
     } finally {
       setIsLoading(false);
     }
@@ -433,6 +440,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = () => {
+    setIsLogoutConfirmOpen(true);
+  };
+
+  const cancelSignOut = () => {
+    setIsLogoutConfirmOpen(false);
+  };
+
+  const confirmSignOut = () => {
+    setIsLogoutConfirmOpen(false);
     setAuthToken(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('driver_ping_token');
@@ -441,6 +457,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setVehicles([]);
     setAlerts([]);
+    setActiveTab('home');
   };
 
   const updateUserPreferences = async (prefs: {
@@ -744,6 +761,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         verifyOtp,
         switchAccount,
         signOut,
+        isLogoutConfirmOpen,
+        setIsLogoutConfirmOpen,
+        confirmSignOut,
+        cancelSignOut,
         updateUserPreferences,
         refreshVehicles,
         registerVehicle,

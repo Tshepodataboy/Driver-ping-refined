@@ -37,6 +37,8 @@ export function HomeScreen() {
   const [pressedQuadrant, setPressedQuadrant] = useState<'vehicle' | 'driver' | 'road' | 'emergency' | null>(null);
   const [hoveredCategory, setHoveredCategory] = useState<'vehicle' | 'driver' | 'road' | 'emergency' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'vehicle' | 'driver' | 'road' | 'emergency' | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
   const quadrantTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeCategory = pressedQuadrant || hoveredCategory || selectedCategory;
@@ -52,7 +54,7 @@ export function HomeScreen() {
       case 'emergency':
         return 'Emergency SOS';
       default:
-        return 'RSA · 9 Provinces';
+        return '';
     }
   };
 
@@ -73,6 +75,15 @@ export function HomeScreen() {
     setActiveTab('report');
   };
 
+  const handleReportButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.focus();
+    setIsFlashing(true);
+    setIsReportOpen(true);
+    setTimeout(() => {
+      setIsFlashing(false);
+    }, 550);
+  };
+
   const handleQuadrantClick = (target: 'vehicle' | 'driver' | 'road' | 'emergency') => {
     setSelectedCategory(target);
     if (pressedQuadrant) return;
@@ -82,6 +93,7 @@ export function HomeScreen() {
     }
     quadrantTimerRef.current = setTimeout(() => {
       setPressedQuadrant(null);
+      setIsReportOpen(false);
       if (target === 'vehicle') {
         handleStartReport('vehicle_condition');
       } else if (target === 'driver') {
@@ -133,23 +145,42 @@ export function HomeScreen() {
 
   return (
     <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-white">
-      {/* 1. PRIMARY FLOATING WHITE HERO CARD - Compact & Sleek */}
-      <div className="glass-card text-gray-950 rounded-[28px] px-4 py-3 crimson-card-shadow relative overflow-hidden text-center">
-        {/* Hero Title */}
-        <h1 className="text-lg font-black font-display tracking-tight text-gray-950 max-w-[270px] mx-auto leading-tight relative z-10">
-          Smart vehicle alerts
-        </h1>
+      {/* 1. PRIMARY FLOATING HERO CARD - Red Aurora Mesh Effect (matching user reference image) */}
+      <div className="report-aurora-card rounded-[34px] px-4.5 pt-4 pb-3.5 text-white relative overflow-hidden text-center shadow-2xl">
+        {/* Atmospheric Blurred Aurora Mesh Light Blooms (matching reference image fluid blur effect in red) */}
+        <div className="absolute -top-14 -right-10 w-56 h-56 rounded-full bg-[#FB7185]/45 blur-[50px] pointer-events-none" />
+        <div className="absolute top-1/4 -left-12 w-64 h-64 rounded-full bg-[#E11D48]/50 blur-[60px] pointer-events-none" />
+        <div className="absolute -bottom-10 right-4 w-52 h-52 rounded-full bg-[#9F1239]/70 blur-[45px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 h-44 rounded-full bg-[#BE123C]/35 blur-[45px] pointer-events-none" />
+
+        {/* Top Header Row (matching reference widget card header style) */}
+        <div className="flex items-center justify-between relative z-10 mb-2.5 px-1">
+          <div className="text-left">
+            <span className="text-[10px] font-black uppercase tracking-widest text-rose-200/80 block leading-tight">
+              COMMUNITY ALERTS
+            </span>
+            <h1 className="text-sm font-black font-display text-white tracking-tight leading-tight">
+              Smart Vehicle Pings
+            </h1>
+          </div>
+
+          {/* Frosted Glass Category Indicator Pill (active category only) */}
+          {activeCategory && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 hover:bg-black/35 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all shadow-xs cursor-default">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{getPillLabel()}</span>
+            </div>
+          )}
+        </div>
 
         {/* Center Circular GO / Social Button */}
         <div className="my-1 relative flex flex-col items-center justify-center z-10">
-          <div className="wrapper" tabIndex={-1}>
+          <div className={`wrapper ${isReportOpen ? 'is-open' : ''}`} tabIndex={-1}>
             <div className="stage">
               <div className="go-wrap">
                 <button
-                  className="btn group focus:outline-none"
-                  onClick={(e) => {
-                    e.currentTarget.focus();
-                  }}
+                  className={`btn group focus:outline-none ${isFlashing ? 'is-flashing' : ''}`}
+                  onClick={handleReportButtonClick}
                   onDoubleClick={() => handleStartReport()}
                   aria-label="Report vehicle"
                   title="Click to select issue or double click to report"
@@ -242,6 +273,29 @@ export function HomeScreen() {
             </div>
           </div>
         </div>
+
+        {/* Bottom Status Row (matching reference widget card layout) */}
+        <div className="flex items-center justify-between relative z-10 mt-1.5 pt-2 border-t border-white/10 px-1">
+          <div className="flex items-center gap-1.5 text-left">
+            <div className="w-6 h-6 rounded-lg bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 text-rose-200">
+              <Shield className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <span className="text-[9px] font-bold text-rose-200/80 uppercase tracking-wider block leading-none">
+                Confidential
+              </span>
+              <span className="text-[10px] font-extrabold text-white leading-tight">
+                100% Anonymous
+              </span>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] font-extrabold text-rose-200 leading-tight">
+              Tap Report to expand
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Guide button explaining how the 4 reporting buttons work - placed under the hero card */}
@@ -273,17 +327,21 @@ export function HomeScreen() {
         </div>
 
         {(() => {
-          const unreadAlerts = alerts.filter(
-            (a) => a.status === 'received' || a.status === 'needs_review'
-          );
+          // Display top 4 most recent alerts for driver's vehicles (unread prioritized first)
+          const displayAlerts = [...alerts].sort((a, b) => {
+            const isUnreadA = a.status === 'received' || a.status === 'needs_review' ? 1 : 0;
+            const isUnreadB = b.status === 'received' || b.status === 'needs_review' ? 1 : 0;
+            if (isUnreadA !== isUnreadB) return isUnreadB - isUnreadA;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
 
-          if (unreadAlerts.length === 0) {
+          if (displayAlerts.length === 0) {
             return (
-              <div className="bg-white/10 backdrop-blur-md rounded-[26px] p-5 text-center border border-white/15">
-                <CheckCircle2 className="w-7 h-7 text-emerald-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-white">All clear</p>
-                <p className="text-[10px] text-white/60 mt-0.5">
-                  No unread observations for your registered vehicles.
+              <div className="glass-card rounded-[26px] p-5 text-center border border-white/60">
+                <CheckCircle2 className="w-7 h-7 text-emerald-600 mx-auto mb-1.5" />
+                <p className="text-xs font-bold text-gray-900">All clear</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  No observations or alerts reported for your registered vehicles.
                 </p>
               </div>
             );
@@ -291,7 +349,7 @@ export function HomeScreen() {
 
           return (
             <div className="space-y-2.5">
-              {unreadAlerts.slice(0, 3).map((alert) => {
+              {displayAlerts.slice(0, 4).map((alert) => {
                 const getBadge = (cat: string) => {
                   switch (cat) {
                     case 'vehicle_condition':
@@ -357,24 +415,24 @@ export function HomeScreen() {
                   <div
                     key={alert.id}
                     onClick={() => handleAlertClick(alert)}
-                    className="w-full glass-card hover:bg-white text-gray-950 p-3 rounded-2xl shadow-sm flex items-center justify-between text-left transition-all active:scale-[0.99] cursor-pointer group"
+                    className="w-full glass-card hover:brightness-95 text-gray-950 p-3.5 rounded-2xl shadow-sm flex items-center justify-between text-left transition-all active:scale-[0.99] cursor-pointer group border border-white/80"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-9 h-9 rounded-full ${badge.bg} flex items-center justify-center shrink-0 shadow-xs`}>
+                      <div className={`w-9 h-9 rounded-full ${badge.bg} flex items-center justify-center shrink-0 shadow-xs border border-gray-100`}>
                         {badge.icon}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-xs font-bold text-gray-950 group-hover:text-gray-900 truncate">
+                        <h3 className="text-xs font-bold text-gray-900 group-hover:text-[#941329] truncate">
                           {alert.issueTitle}
                         </h3>
-                        <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex items-center gap-2 mt-1">
                           <div className="w-24 shrink-0 drop-shadow-xs">
                             <ProvincialPlate
                               provinceCode={detectProvinceFromPlate(alert.plateDisplay)}
                               plateText={alert.plateDisplay}
                             />
                           </div>
-                          <span className="text-[10px] text-gray-400 font-medium">
+                          <span className="text-[10px] text-gray-500 font-medium">
                             {getRelativeTime(alert.createdAt)}
                           </span>
                         </div>
@@ -383,8 +441,18 @@ export function HomeScreen() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {alert.status === 'received' && (
-                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] font-extrabold text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs">
                           New
+                        </span>
+                      )}
+                      {alert.status === 'needs_review' && (
+                        <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full shadow-xs">
+                          Review
+                        </span>
+                      )}
+                      {alert.status === 'resolved' && (
+                        <span className="text-[9px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full shadow-xs">
+                          Resolved
                         </span>
                       )}
                       <button
@@ -393,11 +461,11 @@ export function HomeScreen() {
                           e.stopPropagation();
                           takeAlertAction(alert.id, 'resolve', 'Dismissed');
                         }}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
                         title="Dismiss alert"
                         aria-label="Dismiss"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -555,11 +623,42 @@ export function HomeScreen() {
               </div>
             </div>
 
-            <p className="text-xs text-gray-600 mb-4 leading-relaxed">
-              In danger, road accidents, or witnessing criminal activity? Dial directly:
-            </p>
+            {/* 1. PRIORITIZED ACCIDENT & EMERGENCY REPORT BUTTON */}
+            <button
+              onClick={() => {
+                setShowEmergencyModal(false);
+                handleStartReport('driver_behaviour');
+              }}
+              className="w-full p-4 mb-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl shadow-lg shadow-red-950/30 flex items-center justify-between transition-all transform active:scale-[0.98] border border-red-400/40 group cursor-pointer"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                  <Siren className="w-5 h-5 animate-pulse text-amber-300" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-white leading-tight flex items-center gap-1.5">
+                    <span>REPORT ACCIDENT / EMERGENCY</span>
+                    <span className="px-1.5 py-0.5 bg-amber-400 text-red-950 font-black text-[9px] rounded-md">PRIORITY</span>
+                  </div>
+                  <div className="text-[10px] text-rose-100 font-medium mt-0.5 leading-tight">
+                    Instant observation & vehicle incident alert
+                  </div>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-white/90 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
+            </button>
 
-            <div className="space-y-2 mb-4">
+            {/* Direct Hotlines Section Divider */}
+            <div className="relative my-3">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-[9px] font-black uppercase tracking-widest text-gray-400">
+                <span className="bg-white px-2.5">OR DIAL EMERGENCY HOTLINES</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-2">
               <a
                 href="tel:10111"
                 className="flex items-center justify-between p-3 rounded-2xl bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-950 transition-colors"
@@ -614,17 +713,6 @@ export function HomeScreen() {
                 </span>
               </a>
             </div>
-
-            <button
-              onClick={() => {
-                setShowEmergencyModal(false);
-                handleStartReport('driver_behaviour');
-              }}
-              className="w-full py-2.5 px-3 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-2xl transition-colors flex items-center justify-center gap-2"
-            >
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-              <span>Submit Urgent Reckless Driving Report</span>
-            </button>
           </div>
         </div>
       )}

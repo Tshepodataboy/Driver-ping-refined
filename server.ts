@@ -35,13 +35,20 @@ async function startServer() {
     next(err);
   });
 
+  const isProd = process.env.NODE_ENV === 'production';
   const distPath = path.resolve(__dirname, 'dist');
   const distIndex = path.resolve(distPath, 'index.html');
 
-  if (fs.existsSync(distIndex)) {
+  if (isProd && fs.existsSync(distIndex)) {
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(distIndex);
+    app.get('*', (_req, res, next) => {
+      if (fs.existsSync(distIndex)) {
+        res.sendFile(distIndex, (err) => {
+          if (err) next(err);
+        });
+      } else {
+        next();
+      }
     });
   } else {
     const vite = await createViteServer({

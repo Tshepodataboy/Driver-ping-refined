@@ -13,6 +13,9 @@ import { ProfileScreen } from './screens/ProfileScreen.js';
 import { AdminScreen } from './screens/AdminScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 
+import { DriverPingLoader } from './components/DriverPingLoader.js';
+import { LogoutConfirmModal } from './components/LogoutConfirmModal.js';
+
 function MainApp() {
   const { user, activeTab, isLoading } = useApp();
 
@@ -23,18 +26,21 @@ function MainApp() {
         {/* Geometric Background for full app */}
         <GeometricBackground />
 
-        <div className="relative z-10 flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-2xl animate-bounce mb-4 p-2">
+        <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-2xl animate-bounce mb-2 p-2">
             <img
               src="https://res.cloudinary.com/dwd83begj/image/upload/v1792686945/logo_icon-removebg-preview_e6k6ne.png"
               alt="Driver Ping Logo"
               className="w-full h-full object-contain"
             />
           </div>
-          <div className="text-xl font-black font-display tracking-tight uppercase mb-1">
-            Driver Ping
+
+          {/* Dash-animated SVG stroke letters replacing static Driver Ping text */}
+          <div className="my-2 flex justify-center">
+            <DriverPingLoader height="36px" />
           </div>
-          <div className="text-xs text-white/70 font-medium">
+
+          <div className="text-xs text-white/80 font-semibold tracking-wide">
             Loading secure driver session...
           </div>
         </div>
@@ -78,6 +84,9 @@ function MainApp() {
 
       {/* Phone / Email Authentication Modal */}
       <AuthModal />
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal />
     </div>
   );
 }

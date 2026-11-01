@@ -4,6 +4,7 @@ import {
   ShieldCheck,
   ArrowRight,
   AlertCircle,
+  AlertTriangle,
   Mail,
   User,
   Phone,
@@ -12,8 +13,10 @@ import {
   ChevronUp,
   MapPin,
   Car,
+  X,
 } from 'lucide-react';
 import { ProvincialPlate } from '../components/ProvincialPlate.js';
+import { DriverPingLoader } from '../components/DriverPingLoader.js';
 
 const PROVINCES = [
   { code: 'GP', name: 'Gauteng', plateSuffix: 'GP' },
@@ -51,6 +54,14 @@ export function LoginPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Error Pop Up Modal State
+  const [showErrorPopup, setShowErrorPopup] = useState(false);
+  const [popupData, setPopupData] = useState<{
+    title: string;
+    message: string;
+    isUnregistered?: boolean;
+  }>({ title: '', message: '' });
+
   const handleDemoSubmit = async (demoUserId: string = 'usr_alex_001') => {
     setErrorMsg(null);
     await loginAsDemo(demoUserId);
@@ -63,12 +74,26 @@ export function LoginPage() {
     setSuccessMsg(null);
 
     if (!email.trim()) {
-      setErrorMsg('Please enter your registered email address.');
+      const msg = 'Please enter your registered email address.';
+      setErrorMsg(msg);
+      setPopupData({
+        title: 'Email Required',
+        message: msg,
+        isUnregistered: false,
+      });
+      setShowErrorPopup(true);
       return;
     }
 
     if (!password) {
-      setErrorMsg('Please enter your password.');
+      const msg = 'Please enter your account password.';
+      setErrorMsg(msg);
+      setPopupData({
+        title: 'Password Required',
+        message: msg,
+        isUnregistered: false,
+      });
+      setShowErrorPopup(true);
       return;
     }
 
@@ -83,7 +108,24 @@ export function LoginPage() {
         setSignupStep(2);
       }
     } else {
-      setErrorMsg(res.error || 'Failed to sign in. Please verify your email and password.');
+      const rawError = res.error || 'Failed to sign in. Please verify your email and password.';
+      setErrorMsg(rawError);
+
+      const lower = rawError.toLowerCase();
+      const isUnregistered =
+        lower.includes('no account') ||
+        lower.includes('not exist') ||
+        lower.includes('unregistered') ||
+        lower.includes('not found');
+
+      setPopupData({
+        title: isUnregistered ? 'Account Not Found' : 'Incorrect Password',
+        message: isUnregistered
+          ? 'No account exists with this email address. Please check for typos or click below to create a new account.'
+          : 'The password entered is incorrect. Please verify your credentials and try again.',
+        isUnregistered,
+      });
+      setShowErrorPopup(true);
     }
   };
 
@@ -293,7 +335,9 @@ export function LoginPage() {
                   className="w-full py-3.5 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? (
-                    'Signing in...'
+                    <div className="flex items-center justify-center py-0.5">
+                      <DriverPingLoader height="18px" />
+                    </div>
                   ) : (
                     <>
                       <span>Sign In</span>
@@ -646,6 +690,69 @@ export function LoginPage() {
           )}
         </div>
       </div>
+
+      {/* Incorrect Credentials / Unregistered Email Pop Up Modal */}
+      {showErrorPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-red-200/80 animate-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={() => setShowErrorPopup(false)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              aria-label="Close error popup"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 text-[#941329] flex items-center justify-center shrink-0 shadow-xs">
+                <AlertTriangle className="w-6 h-6 stroke-[2.3]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200/50">
+                  {popupData.isUnregistered ? 'Unregistered Email' : 'Login Failed'}
+                </span>
+                <h3 className="font-extrabold text-lg text-gray-950 font-display leading-tight mt-1">
+                  {popupData.title}
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-red-50/80 border border-red-200/80 rounded-2xl text-xs text-red-950 font-medium leading-relaxed my-3">
+              {popupData.message}
+            </div>
+
+            <div className="space-y-2 mt-4">
+              {popupData.isUnregistered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowErrorPopup(false);
+                    setAuthMode('signup');
+                    setErrorMsg(null);
+                  }}
+                  className="w-full py-3 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span>Create New Account (Sign Up)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowErrorPopup(false)}
+                className={`w-full py-2.5 px-4 font-bold text-xs rounded-2xl transition-colors cursor-pointer ${
+                  popupData.isUnregistered
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                    : 'bg-[#941329] hover:bg-[#7a0f21] text-white shadow-md'
+                }`}
+              >
+                {popupData.isUnregistered ? 'Try Different Email' : 'Try Again'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

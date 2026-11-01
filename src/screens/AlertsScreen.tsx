@@ -195,7 +195,7 @@ export function AlertsScreen() {
                     setActionType(null);
                     setActionNote('');
                   }}
-                  className="w-full glass-card hover:bg-white text-gray-950 p-4 rounded-2xl shadow-sm flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group"
+                  className="w-full glass-card hover:brightness-110 text-white p-4 rounded-2xl shadow-sm flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group border border-rose-300/20"
                 >
                   <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3 min-w-0">
@@ -204,7 +204,7 @@ export function AlertsScreen() {
                       </div>
 
                       <div className="min-w-0">
-                        <h2 className="text-xs font-bold text-gray-900 group-hover:text-gray-950 truncate">
+                        <h2 className="text-xs font-bold text-white group-hover:text-rose-100 truncate">
                           {alert.issueTitle}
                         </h2>
                         <div className="flex items-center gap-2 mt-1.5">
@@ -214,12 +214,12 @@ export function AlertsScreen() {
                               plateText={alert.plateDisplay}
                             />
                           </div>
-                          <span className="text-[10px] text-gray-400 font-medium">
+                          <span className="text-[10px] text-rose-200/80 font-medium">
                             {getRelativeTime(alert.createdAt)}
                           </span>
                         </div>
                         {alert.customNote && (
-                          <p className="text-[11px] text-gray-500 mt-1 truncate italic">
+                          <p className="text-[11px] text-rose-200/90 mt-1 truncate italic">
                             "{alert.customNote}"
                           </p>
                         )}
@@ -228,13 +228,13 @@ export function AlertsScreen() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {alert.status === 'needs_review' && (
-                        <span className="text-[9px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] font-bold text-white bg-amber-600 px-2 py-0.5 rounded-full shadow-xs">
                           Review
                         </span>
                       )}
                       {alert.status === 'received' && (
-                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          New
+                        <span className="text-[9px] font-bold text-white bg-[#C81950] px-2 py-0.5 rounded-full shadow-xs border border-rose-300/30">
+                          Unread
                         </span>
                       )}
                       <button
@@ -244,7 +244,7 @@ export function AlertsScreen() {
                           setSelectedAlert(alert);
                           setActionType('resolve');
                         }}
-                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-rose-200 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                         title="Dismiss alert"
                         aria-label="Dismiss"
                       >

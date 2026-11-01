@@ -28,30 +28,66 @@
   box-shadow: 0 10px 30px rgba(184, 29, 57, 0.4);
 }
 
-/* Glassmorphism & Textured White Component Utilities */
+/* Glassmorphism & Textured White Component Utilities ("Red & White Style") */
 .glass-card,
 .glass-card-subtle,
 .glass-modal,
 .card-textured,
 .crimson-card-shadow {
   background-color: #FAF8F6 !important;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)), url('/assets/aistudio/image_55801d9a.png') !important;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('/assets/aistudio/image_55801d9a.png') !important;
   background-repeat: repeat !important;
   background-size: 64px 64px !important;
   background-position: center !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  color: #111827 !important;
 }
 
-div[class*="rounded-[34px]"],
-div[class*="rounded-[32px]"],
-div[class*="rounded-[28px]"],
-div[class*="rounded-3xl"] {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)), url('/assets/aistudio/image_55801d9a.png');
-  background-repeat: repeat;
-  background-size: 64px 64px;
-  background-position: center;
+.card-vibrant {
+  background-color: #FAF8F6 !important;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('/assets/aistudio/image_55801d9a.png') !important;
+  background-repeat: repeat !important;
+  background-size: 64px 64px !important;
+  background-position: center !important;
+  color: #111827 !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Fluid Aurora Red Mesh Gradient Card (matching user reference image effect in red) */
+.report-aurora-card {
+  position: relative !important;
+  background-color: #4C0617 !important;
+  background-image:
+    radial-gradient(ellipse 90% 75% at 80% 15%, rgba(244, 63, 94, 0.65) 0%, transparent 60%),
+    radial-gradient(ellipse 75% 65% at 15% 85%, rgba(190, 18, 60, 0.6) 0%, transparent 58%),
+    radial-gradient(circle at 35% 25%, rgba(251, 113, 133, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(45, 2, 9, 0.85) 0%, transparent 55%),
+    linear-gradient(145deg, #7F0E28 0%, #58081A 45%, #35040F 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 24px 60px -12px rgba(25, 2, 7, 0.8),
+              0 8px 24px -4px rgba(0, 0, 0, 0.4),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.38) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  overflow: hidden !important;
+}
+
+.report-aurora-card .btn {
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFF5F7 60%, #FCE7EB 100%);
+  color: #941329;
+  border: 0.15rem solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 14px 34px -4px rgba(40, 2, 10, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+}
+
+.report-aurora-card .btn::before,
+.report-aurora-card .main::before {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 26px rgba(244, 63, 94, 0.45), inset 0 0 14px rgba(0, 0, 0, 0.25);
 }
 
 
@@ -144,16 +180,28 @@ html, body, * {
 }
 
 /* pressed: red flash for 0.5s */
-.wrapper:focus-within .btn {
+.wrapper:focus-within .btn,
+.wrapper.is-open .btn,
+.report-aurora-card .wrapper:focus-within .btn,
+.report-aurora-card .wrapper.is-open .btn,
+.btn.is-flashing {
   box-shadow:
     0 5px 3px rgb(18 18 18 / 35%),
-    0 5px 25px rgba(255, 30, 30, 0.777);
-  background: linear-gradient(0deg, #ffffff 30%, #ffffff 30%, #d6d6d6);
-  animation: flash-glow 0.5s linear;
+    0 0 35px rgba(255, 30, 30, 1),
+    0 0 70px rgba(255, 10, 40, 0.9) !important;
+  background: linear-gradient(0deg, #ffffff 30%, #ffe8ec 70%, #ffccd5) !important;
+  color: #ff0033 !important;
+  animation: flash-glow 0.5s linear !important;
 }
 
-.wrapper:focus-within .btn::before {
-  animation: flash-ring 0.5s linear;
+.wrapper:focus-within .btn::before,
+.wrapper.is-open .btn::before,
+.report-aurora-card .wrapper:focus-within .btn::before,
+.report-aurora-card .wrapper.is-open .btn::before,
+.btn.is-flashing::before {
+  background: rgb(255, 130, 150) !important;
+  box-shadow: 0 0 35px rgba(255, 20, 50, 1), inset 0 0 14px #ff0033 !important;
+  animation: flash-ring 0.5s linear !important;
 }
 
 @keyframes flash-glow {
@@ -161,20 +209,24 @@ html, body, * {
   99% {
     box-shadow:
       0 5px 3px rgb(18 18 18 / 35%),
-      0 5px 25px rgba(255, 30, 30, 0.9);
+      0 0 45px rgba(255, 30, 30, 1),
+      0 0 85px rgba(255, 10, 40, 0.95);
+    background: linear-gradient(0deg, #ffffff 20%, #ffebee 60%, #ffcdd2);
+    color: #ff0033;
   }
 }
 
 @keyframes flash-ring {
   0%,
   99% {
-    background: rgb(255, 170, 170);
-    box-shadow: 0 0.2rem 0.2rem inset #ff1e1e;
+    background: rgb(255, 120, 140);
+    box-shadow: 0 0 40px rgba(255, 20, 50, 1), inset 0 0.25rem 0.45rem #ff0033;
   }
 }
 
 /* after the flash, GO shrinks and fades out (the grid takes its place) */
-.wrapper:focus-within .go-wrap {
+.wrapper:focus-within .go-wrap,
+.wrapper.is-open .go-wrap {
   opacity: 0;
   transform: scale(0.6);
   pointer-events: none;
@@ -222,7 +274,8 @@ html, body, * {
 }
 
 /* pops in right after the red flash */
-.wrapper:focus-within .socials {
+.wrapper:focus-within .socials,
+.wrapper.is-open .socials {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -273,10 +326,34 @@ html, body, * {
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
+/* USA Police cop car red & blue strobe sequence for emergency button */
+@keyframes police-cop-strobe {
+  0%, 42% {
+    color: #ef4444; /* Vivid USA Police Red */
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.95));
+  }
+  43%, 48% {
+    color: #ffffff; /* Strobe flash transition */
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+  }
+  50%, 92% {
+    color: #2563eb; /* Vivid USA Police Blue */
+    filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.95));
+  }
+  93%, 98% {
+    color: #ffffff;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+  }
+  100% {
+    color: #ef4444;
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.95));
+  }
+}
+
 .icon-quadrant-emergency {
   transform: translate(-8px, -8px);
-  color: #dc2626;
-  transition: color 0.2s ease, transform 0.2s ease;
+  animation: police-cop-strobe 0.75s infinite linear;
+  transition: transform 0.2s ease;
 }
 
 /* hover & active-hover: keep glossy gradient tinted with category / emergency color and scale to 1.1 */
@@ -299,6 +376,63 @@ html, body, * {
 .card3:hover .icon-quadrant-road, .card3.active-hover .icon-quadrant-road,
 .card4:hover .icon-quadrant-emergency, .card4.active-hover .icon-quadrant-emergency {
   color: #ffffff !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+/* Custom SVG Dash-Animated Loader ("DRIVER PING") */
+.loader {
+  --h: 56px;          /* letter height */
+  --ink: #fff;         /* letter colour */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  margin: 0.25em 0;
+}
+
+.letter {
+  display: block;
+  height: var(--h);
+  width: auto;         /* width follows each letter's viewBox */
+  overflow: visible;
+}
+
+.space {
+  width: calc(var(--h) * 0.3);
+}
+
+.dash {
+  stroke: var(--ink);
+  stroke-width: 10;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  animation: dashArray 2s ease-in-out infinite,
+             dashOffset 2s linear infinite;
+  animation-delay: calc(var(--i) * 0.1s);  /* stagger per letter */
+}
+
+.join-bevel {
+  stroke-linejoin: bevel;  /* stops the V's point from spiking below the baseline */
+}
+
+@keyframes dashArray {
+  0%   { stroke-dasharray: 0 1 359 0; }
+  50%  { stroke-dasharray: 0 359 1 0; }
+  100% { stroke-dasharray: 359 1 0 0; }
+}
+
+@keyframes dashOffset {
+  0%   { stroke-dashoffset: 385; }
+  100% { stroke-dashoffset: 5; }
+}
+
+@media (max-width: 640px) {
+  .loader { --h: 42px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash { animation: none; stroke-dasharray: none; }
 }
 
 /* pressed-in feel when not in half-second active-hover hold */
