@@ -28,12 +28,23 @@
   box-shadow: 0 10px 30px rgba(184, 29, 57, 0.4);
 }
 
-/* Glassmorphism & Textured White Component Utilities ("Red & White Style") */
-.glass-card,
-.glass-card-subtle,
-.glass-modal,
-.card-textured,
-.crimson-card-shadow {
+/* =========================================================================
+   LIGHT & DARK MODE THEME CARD SYSTEM
+   ========================================================================= */
+
+/* LIGHT MODE: White Cards with Dark Text */
+html:not(.dark) .glass-card,
+html:not(.dark) .glass-card-subtle,
+html:not(.dark) .glass-modal,
+html:not(.dark) .card-textured,
+html:not(.dark) .pro-form-card,
+html:not(.dark) .card-vibrant,
+.light .glass-card,
+.light .glass-card-subtle,
+.light .glass-modal,
+.light .card-textured,
+.light .pro-form-card,
+.light .card-vibrant {
   background-color: #FAF8F6 !important;
   background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('/assets/aistudio/image_55801d9a.png') !important;
   background-repeat: repeat !important;
@@ -43,20 +54,192 @@
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
   color: #111827 !important;
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.3) !important;
 }
 
-.card-vibrant {
-  background-color: #FAF8F6 !important;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('/assets/aistudio/image_55801d9a.png') !important;
-  background-repeat: repeat !important;
-  background-size: 64px 64px !important;
-  background-position: center !important;
+html:not(.dark) .pro-form-card,
+.light .pro-form-card {
+  border-radius: 32px !important;
+}
+
+html:not(.dark) .pro-squircle,
+.light .pro-squircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #F3F4F6;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+html:not(.dark) .pro-input,
+.light .pro-input {
+  background-color: #F9FAFB !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
   color: #111827 !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.35) !important;
+}
+html:not(.dark) .pro-input:focus,
+.light .pro-input:focus {
+  background-color: #FFFFFF !important;
+  border-color: #941329 !important;
 }
 
-/* Fluid Aurora Red Mesh Gradient Card (matching user reference image effect in red) */
+/* Light mode text adaptions inside pro-form-card and glass-card */
+html:not(.dark) .glass-card h1,
+html:not(.dark) .glass-card h2,
+html:not(.dark) .glass-card h3,
+html:not(.dark) .glass-card h4,
+html:not(.dark) .glass-modal h1,
+html:not(.dark) .glass-modal h2,
+html:not(.dark) .glass-modal h3,
+html:not(.dark) .glass-modal h4,
+html:not(.dark) .pro-form-card h1,
+html:not(.dark) .pro-form-card h2,
+html:not(.dark) .pro-form-card h3,
+html:not(.dark) .pro-form-card h4,
+.light .glass-card h1,
+.light .glass-card h2,
+.light .glass-card h3,
+.light .glass-card h4,
+.light .glass-modal h1,
+.light .glass-modal h2,
+.light .glass-modal h3,
+.light .glass-modal h4,
+.light .pro-form-card h1,
+.light .pro-form-card h2,
+.light .pro-form-card h3,
+.light .pro-form-card h4 {
+  color: #111827 !important;
+}
+
+/* DARK MODE: Black/Graphite Cards with White Text */
+.dark .glass-card,
+.dark .glass-card-subtle,
+.dark .glass-modal,
+.dark .card-textured,
+.dark .pro-form-card,
+.dark .card-vibrant {
+  background-color: #1A1C20 !important;
+  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.75), 0 8px 24px -4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .pro-form-card {
+  border-radius: 32px !important;
+}
+
+.dark .pro-squircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #26282E;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dark .pro-input {
+  background-color: #131417 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #FFFFFF !important;
+}
+.dark .pro-input:focus {
+  background-color: #17181D !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Dark mode text and nested containers inside glass-card & glass-modal */
+.dark .glass-card h1,
+.dark .glass-card h2,
+.dark .glass-card h3,
+.dark .glass-card h4,
+.dark .glass-modal h1,
+.dark .glass-modal h2,
+.dark .glass-modal h3,
+.dark .glass-modal h4,
+.dark .pro-form-card h1,
+.dark .pro-form-card h2,
+.dark .pro-form-card h3,
+.dark .pro-form-card h4 {
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card p,
+.dark .glass-modal p {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.dark .glass-card .text-gray-950,
+.dark .glass-card .text-gray-900,
+.dark .glass-card .text-gray-800,
+.dark .glass-card .text-gray-700,
+.dark .glass-modal .text-gray-950,
+.dark .glass-modal .text-gray-900,
+.dark .glass-modal .text-gray-800,
+.dark .glass-modal .text-gray-700 {
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card .text-gray-600,
+.dark .glass-card .text-gray-500,
+.dark .glass-modal .text-gray-600,
+.dark .glass-modal .text-gray-500 {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.dark .glass-card .text-gray-400,
+.dark .glass-modal .text-gray-400 {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.dark .glass-card .bg-gray-50,
+.dark .glass-card .bg-gray-100,
+.dark .glass-card .bg-gray-200,
+.dark .glass-modal .bg-gray-50,
+.dark .glass-modal .bg-gray-100,
+.dark .glass-modal .bg-gray-200 {
+  background-color: #131417 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card .border-gray-100,
+.dark .glass-card .border-gray-200,
+.dark .glass-card .border-gray-300,
+.dark .glass-modal .border-gray-100,
+.dark .glass-modal .border-gray-200,
+.dark .glass-modal .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .glass-card input,
+.dark .glass-card textarea,
+.dark .glass-card select,
+.dark .glass-modal input,
+.dark .glass-modal textarea,
+.dark .glass-modal select {
+  background-color: #131417 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card input::placeholder,
+.dark .glass-card textarea::placeholder,
+.dark .glass-modal input::placeholder,
+.dark .glass-modal textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Fluid Aurora Red Mesh Gradient Card (User rule: All red cards remain the same in both modes) */
 .report-aurora-card {
   position: relative !important;
   background-color: #4C0617 !important;
@@ -79,18 +262,16 @@
 .report-aurora-card .btn {
   background: linear-gradient(135deg, #FFFFFF 0%, #FFF5F7 60%, #FCE7EB 100%);
   color: #941329;
-  border: 0.15rem solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 14px 34px -4px rgba(40, 2, 10, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+  border: 0.18rem solid #ffffff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.75), 0 14px 34px -4px rgba(40, 2, 10, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.9);
 }
 
 .report-aurora-card .btn::before,
 .report-aurora-card .main::before {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1.5px solid rgba(255, 255, 255, 0.28);
-  box-shadow: 0 0 26px rgba(244, 63, 94, 0.45), inset 0 0 14px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.7), inset 0 0 12px rgba(255, 255, 255, 0.4);
 }
-
-
 
 /* Hide scrollbar globally while preserving full scroll functionality */
 html, body, * {
@@ -151,9 +332,9 @@ html, body, * {
   width: 8rem;
   height: 8rem;
   border-radius: 10rem;
-  border: 0.15rem solid #ffffff;
+  border: 0.18rem solid #ffffff;
   transition: 0.3s;
-  box-shadow: 0 0.3rem 0.3rem rgb(18 18 18 / 35%);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.75), 0 0.3rem 0.3rem rgb(18 18 18 / 35%);
   font-size: 1.4rem;
   font-weight: 900;
   letter-spacing: 0.05em;
@@ -169,8 +350,9 @@ html, body, * {
   content: "";
   width: 125%;
   height: 125%;
-  background: rgb(224, 224, 224);
-  box-shadow: 0 0.2rem 0.2rem inset #808080;
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.7), 0 0.2rem 0.2rem inset rgba(255, 255, 255, 0.4);
   position: absolute;
   left: -12%;
   top: -12%;
@@ -185,6 +367,7 @@ html, body, * {
 .report-aurora-card .wrapper:focus-within .btn,
 .report-aurora-card .wrapper.is-open .btn,
 .btn.is-flashing {
+  border-color: #ff0033 !important;
   box-shadow:
     0 5px 3px rgb(18 18 18 / 35%),
     0 0 35px rgba(255, 30, 30, 1),
@@ -199,6 +382,7 @@ html, body, * {
 .report-aurora-card .wrapper:focus-within .btn::before,
 .report-aurora-card .wrapper.is-open .btn::before,
 .btn.is-flashing::before {
+  border-color: #ff0033 !important;
   background: rgb(255, 130, 150) !important;
   box-shadow: 0 0 35px rgba(255, 20, 50, 1), inset 0 0 14px #ff0033 !important;
   animation: flash-ring 0.5s linear !important;
@@ -207,6 +391,7 @@ html, body, * {
 @keyframes flash-glow {
   0%,
   99% {
+    border-color: #ff0033;
     box-shadow:
       0 5px 3px rgb(18 18 18 / 35%),
       0 0 45px rgba(255, 30, 30, 1),
@@ -219,6 +404,7 @@ html, body, * {
 @keyframes flash-ring {
   0%,
   99% {
+    border-color: #ff0033;
     background: rgb(255, 120, 140);
     box-shadow: 0 0 40px rgba(255, 20, 50, 1), inset 0 0.25rem 0.45rem #ff0033;
   }
@@ -307,6 +493,50 @@ html, body, * {
 .card3 { border-radius: 5px 5px 5px 90px; }
 .card4 { border-radius: 5px 5px 90px 5px; }
 
+/* DARK MODE: 4 report quadrant buttons turn black with glowing icons */
+.dark .main::before {
+  background: #14161a;
+  box-shadow: 0 0.2rem 0.2rem inset #050608;
+}
+
+.dark .card1,
+.dark .card2,
+.dark .card3,
+.dark .card4 {
+  background: linear-gradient(#1f2228 30%, #111215) !important;
+  border: 0.15rem solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0.35rem 0.7rem rgba(0, 0, 0, 0.75) !important;
+}
+
+.dark .icon-quadrant-vehicle {
+  color: #fb7185;
+}
+
+.dark .icon-quadrant-driver {
+  color: #60a5fa;
+}
+
+.dark .icon-quadrant-road {
+  color: #fbbf24;
+}
+
+.dark .card1:hover, .dark .card1.active-hover {
+  background: linear-gradient(#941329 30%, #4c0519) !important;
+  border-color: #f43f5e !important;
+}
+.dark .card2:hover, .dark .card2.active-hover {
+  background: linear-gradient(#1e40af 30%, #172554) !important;
+  border-color: #60a5fa !important;
+}
+.dark .card3:hover, .dark .card3.active-hover {
+  background: linear-gradient(#b45309 30%, #78350f) !important;
+  border-color: #fbbf24 !important;
+}
+.dark .card4:hover, .dark .card4.active-hover {
+  background: linear-gradient(#b91c1c 30%, #7f1d1d) !important;
+  border-color: #f87171 !important;
+}
+
 /* Balanced optical centering within each curved quadrant */
 .icon-quadrant-vehicle {
   transform: translate(8px, 8px);
@@ -354,6 +584,36 @@ html, body, * {
   transform: translate(-8px, -8px);
   animation: police-cop-strobe 0.75s infinite linear;
   transition: transform 0.2s ease;
+}
+
+/* USA Police cop car red & blue strobe sequence for emergency form outline */
+@keyframes emergency-outline-strobe {
+  0%, 42% {
+    outline-color: #ef4444;
+    box-shadow: 0 0 0 2.5px #ef4444, 0 0 24px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  43%, 48% {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 32px rgba(255, 255, 255, 0.85), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  50%, 92% {
+    outline-color: #2563eb;
+    box-shadow: 0 0 0 2.5px #2563eb, 0 0 24px rgba(37, 99, 235, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  93%, 98% {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 32px rgba(255, 255, 255, 0.85), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    outline-color: #ef4444;
+    box-shadow: 0 0 0 2.5px #ef4444, 0 0 24px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.emergency-form-strobe {
+  outline: 2.5px solid #ef4444 !important;
+  outline-offset: 0px !important;
+  animation: emergency-outline-strobe 0.75s infinite linear !important;
 }
 
 /* hover & active-hover: keep glossy gradient tinted with category / emergency color and scale to 1.1 */

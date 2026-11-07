@@ -18,6 +18,7 @@ import {
   Search,
   X,
   Upload,
+  Siren,
 } from 'lucide-react';
 
 import { SA_PROVINCES, searchProvinces } from '../constants/provinces.js';
@@ -38,14 +39,18 @@ export function ReportScreen() {
     setActiveTab,
     submitReport,
     setIsAuthModalOpen,
+    theme,
   } = useApp();
+
+  const isDark = theme === 'dark';
 
   // Wizard state
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Form state
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string | null>(null);
-  const [provinceSearchQuery, setProvinceSearchQuery] = useState('');
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>(
+    user?.defaultProvinceCode || 'GP'
+  );
   const [plateNumber, setPlateNumber] = useState('');
   const [plate, setPlate] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ReportCategory>(
@@ -92,36 +97,22 @@ export function ReportScreen() {
     }
   }, [user]);
 
-  const selectedProvince = selectedProvinceCode
-    ? SA_PROVINCES.find((p) => p.code === selectedProvinceCode) || null
-    : null;
-
-  const filteredProvinces = useMemo(() => {
-    return searchProvinces(provinceSearchQuery);
-  }, [provinceSearchQuery]);
+  const selectedProvince = useMemo(() => {
+    return (
+      SA_PROVINCES.find((p) => p.code === selectedProvinceCode) ||
+      SA_PROVINCES.find((p) => p.code === 'GP') ||
+      SA_PROVINCES[0]
+    );
+  }, [selectedProvinceCode]);
 
   // Helper to compute formatted plate with province
   const getCombinedPlate = (rawNumber: string, provCode: string) => {
     return formatFullProvincialPlate(rawNumber, provCode);
   };
 
-  // Clean uppercase plate formatting
-  const handlePlateNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = stripProvinceCodeFromInput(e.target.value, selectedProvinceCode || 'WC');
-    setPlateNumber(raw);
-    if (selectedProvinceCode) {
-      setPlate(formatFullProvincialPlate(raw, selectedProvinceCode));
-    } else {
-      setPlate(raw);
-    }
-  };
-
-  // User explicitly requested:
-  // "the province code the plates cannot be edited. the text field should be empty be default"
   const handleProvinceSelect = (code: string) => {
     setSelectedProvinceCode(code);
-    setPlateNumber('');
-    setPlate('');
+    setPlate(getCombinedPlate(plateNumber, code));
   };
 
   const currentCategoryData = CATEGORIES.find((c) => c.id === selectedCategory)!;
@@ -241,7 +232,7 @@ export function ReportScreen() {
     if (selectedCategory === 'vehicle_condition') {
       return {
         label: 'VEHICLE CONDITIONS',
-        icon: <Car className="w-3 h-3 text-[#E53E3E]" />,
+        icon: <Car className="w-3.5 h-3.5 text-[#F87171]" />,
       };
     }
     if (selectedCategory === 'driver_behaviour') {
@@ -249,7 +240,7 @@ export function ReportScreen() {
         label: 'DRIVER BEHAVIOR',
         icon: (
           <svg
-            className="w-3 h-3 text-[#E53E3E]"
+            className="w-3.5 h-3.5 text-[#60A5FA]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -271,7 +262,7 @@ export function ReportScreen() {
         label: 'ROAD VIOLATION',
         icon: (
           <svg
-            className="w-3 h-3 text-[#E53E3E]"
+            className="w-3.5 h-3.5 text-[#FBBF24]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -286,6 +277,12 @@ export function ReportScreen() {
         ),
       };
     }
+    if (selectedCategory === 'emergency') {
+      return {
+        label: 'EMERGENCY SOS',
+        icon: <Siren className="w-3.5 h-3.5 text-rose-500 animate-pulse" />,
+      };
+    }
 
     return {
       label: 'REPORT OBSERVED VEHICLE',
@@ -293,36 +290,105 @@ export function ReportScreen() {
     };
   };
 
+  const getCategoryStyle = (catId: ReportCategory | string) => {
+    switch (catId) {
+      case 'driver_behaviour':
+        return {
+          title: 'Driver Behaviour',
+          subtitle: 'Observe unsafe driving, speeding, tailgating, or illegal maneuvers',
+          badgeBg: 'bg-blue-500/10 border-blue-500/30 text-blue-200',
+          iconBg: 'bg-[#1e40af] text-white shadow-xs',
+          textAccent: 'text-[#60A5FA]',
+          pillBg: 'bg-blue-500/20 border-blue-400/40 text-blue-200',
+          outlineColor: '#2563eb',
+          outlineClass: 'ring-2 ring-[#2563eb] shadow-[0_0_28px_rgba(37,99,235,0.3)]',
+          icon: (
+            <svg className="w-5 h-5 text-[#60A5FA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="9" />
+              <line x1="2" y1="12" x2="9" y2="12" />
+              <line x1="15" y1="12" x2="22" y2="12" />
+            </svg>
+          ),
+        };
+      case 'road_violation':
+        return {
+          title: 'Road Violation',
+          subtitle: 'Document traffic infractions, running red robots, or illegal parking',
+          badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-200',
+          iconBg: 'bg-[#d97706] text-white shadow-xs',
+          textAccent: 'text-[#FBBF24]',
+          pillBg: 'bg-amber-500/20 border-amber-400/40 text-amber-200',
+          outlineColor: '#d97706',
+          outlineClass: 'ring-2 ring-[#d97706] shadow-[0_0_28px_rgba(217,119,6,0.3)]',
+          icon: (
+            <svg className="w-5 h-5 text-[#FBBF24]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="2" x2="4" y2="22" />
+              <line x1="20" y1="2" x2="20" y2="22" />
+              <line x1="12" y1="2" x2="12" y2="22" strokeDasharray="3 3" />
+            </svg>
+          ),
+        };
+      case 'emergency':
+        return {
+          title: 'Emergency SOS',
+          subtitle: 'Immediate danger, hijacking, violent road rage, or severe crash',
+          badgeBg: 'bg-red-500/15 border-red-500/40 text-red-200',
+          iconBg: 'bg-[#dc2626] text-white shadow-xs',
+          textAccent: 'text-rose-400',
+          pillBg: 'bg-red-500/20 border-red-400/40 text-red-200',
+          outlineColor: '#dc2626',
+          outlineClass: 'emergency-form-strobe',
+          icon: <Siren className="w-5 h-5 text-rose-400 stroke-[2.2] animate-pulse" />,
+        };
+      case 'vehicle_condition':
+      default:
+        return {
+          title: 'Vehicle Condition',
+          subtitle: 'Broken lights, loose cargo, worn tyres, smoke, or physical defects',
+          badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-200',
+          iconBg: 'bg-[#941329] text-white shadow-xs',
+          textAccent: 'text-rose-400',
+          pillBg: 'bg-rose-500/20 border-rose-400/40 text-rose-200',
+          outlineColor: '#b81d39',
+          outlineClass: 'ring-2 ring-[#b81d39] shadow-[0_0_28px_rgba(184,29,57,0.3)]',
+          icon: <Car className="w-5 h-5 text-rose-400 stroke-[2.2]" />,
+        };
+    }
+  };
+
   const pillData = getPillData();
+  const currentCatStyle = getCategoryStyle(selectedCategory);
 
   // Rule 1 Enforcement: If user is not signed in
   if (!user) {
     return (
       <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-center">
-        <div className="glass-card text-gray-950 rounded-[34px] p-8 crimson-card-shadow text-center">
-          <div className="w-16 h-16 rounded-3xl bg-red-50 text-[#B81D39] flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 stroke-[2.2]" />
+        <div className="pro-form-card rounded-[32px] p-7 shadow-[0_24px_64px_rgba(0,0,0,0.7)] text-center text-white">
+          <div className="pro-squircle mx-auto mb-4">
+            <Lock className="w-6 h-6 text-white" />
           </div>
-          <h2 className="text-2xl font-black font-display text-gray-950">
+          <h2 className="text-xl font-bold font-display text-white tracking-tight">
             Account required to report
           </h2>
-          <p className="text-xs text-gray-500 mt-2 max-w-xs mx-auto leading-relaxed">
+          <p className="text-xs text-white/60 mt-1 max-w-xs mx-auto leading-relaxed">
             To protect drivers against automated spam and harassment, there is no guest reporting. Sign up with a phone number in 10 seconds.
           </p>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-left text-xs text-gray-600 space-y-2">
-            <div className="flex items-center gap-2 text-gray-900 font-semibold">
-              <Shield className="w-4 h-4 text-[#B81D39]" />
+          <div className="mt-5 p-3.5 bg-[#131417] rounded-2xl border border-white/10 text-left text-xs text-white/70 space-y-2">
+            <div className="flex items-center gap-2 text-white font-semibold">
+              <Shield className="w-4 h-4 text-rose-400" />
               <span>Privacy Guarantee:</span>
             </div>
-            <p>
+            <p className="leading-relaxed">
               The driver you report will <strong>never</strong> see your name, phone number, or account. Your identity is strictly hidden from the recipient.
             </p>
           </div>
 
           <button
             onClick={() => setIsAuthModalOpen(true)}
-            className="mt-6 w-full py-3.5 px-4 bg-[#B81D39] hover:bg-[#9E142C] text-white font-bold text-sm rounded-2xl shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
+            className="mt-6 w-full py-3.5 px-4 bg-white hover:bg-gray-100 text-gray-950 font-bold text-xs rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Sign In / Register with Phone</span>
             <ArrowRight className="w-4 h-4" />
@@ -333,12 +399,26 @@ export function ReportScreen() {
   }
 
   return (
-    <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-gray-900">
-      {/* Floating White Report Card */}
-      <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
-        {/* Top Dark Capsule Pill */}
+    <div className={`pb-36 pt-2 px-3 max-w-[420px] mx-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      {/* Professional Card matching Reference Image with Dynamic Category Outline */}
+      <div
+        className={`pro-form-card rounded-[32px] p-6 sm:p-7 relative overflow-hidden transition-all duration-300 shadow-[0_24px_64px_rgba(0,0,0,0.4)] ${currentCatStyle.outlineClass}`}
+        style={
+          currentCatStyle.outlineClass === 'emergency-form-strobe'
+            ? undefined
+            : {
+                outline: `2.5px solid ${currentCatStyle.outlineColor}`,
+                outlineOffset: '0px',
+              }
+        }
+      >
+        {/* Top Capsule Pill */}
         <div className="flex justify-center mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0D1829] text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-inner ${
+            isDark
+              ? 'bg-[#131417] border border-white/10 text-white'
+              : 'bg-gray-100 border border-gray-200/80 text-gray-900'
+          }`}>
             {pillData.icon}
             <span>{pillData.label}</span>
           </div>
@@ -346,26 +426,34 @@ export function ReportScreen() {
 
         {/* Header / Progress */}
         {step < 4 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2.5">
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => {
                   if (step === 1) setActiveTab('home');
                   else setStep((s) => (s - 1) as any);
                 }}
-                className="text-xs font-bold text-gray-400 hover:text-gray-900 flex items-center gap-1"
+                className={`text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                  isDark ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                }`}
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
-              <span className="text-[11px] font-black text-[#B81D39] tracking-wider uppercase">
+              <span className={`text-[11px] font-black uppercase tracking-wider ${
+                isDark ? 'text-white/50' : 'text-gray-500'
+              }`}>
                 Step {step} of 3
               </span>
             </div>
 
-            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+            <div className={`w-full h-1.5 rounded-full overflow-hidden mb-3 ${
+              isDark ? 'bg-white/10' : 'bg-gray-200'
+            }`}>
               <div
-                className="bg-[#B81D39] h-full transition-all duration-300"
+                className={`h-full transition-all duration-300 ${
+                  isDark ? 'bg-white' : 'bg-[#941329]'
+                }`}
                 style={{ width: `${(step / 3) * 100}%` }}
               />
             </div>
@@ -373,8 +461,8 @@ export function ReportScreen() {
         )}
 
         {error && (
-          <div className="mb-4 p-3.5 bg-red-50 text-red-700 rounded-2xl text-xs flex items-center gap-2 border border-red-100">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mb-4 p-3.5 bg-rose-500/15 text-rose-700 dark:text-rose-200 rounded-2xl text-xs flex items-center gap-2 border border-rose-500/30">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
             <span>{error}</span>
           </div>
         )}
@@ -382,33 +470,48 @@ export function ReportScreen() {
       {/* STEP 1: PROVINCE PICKER & NUMBER PLATE INPUT */}
       {step === 1 && (
         <div>
-          <h1 className="text-2xl font-bold font-display text-gray-950">
+          {/* Top Squircle Badge matching Reference Image */}
+          <div className="pro-squircle mb-3.5">
+            <Car className={`w-6 h-6 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+          </div>
+
+          <h1 className={`text-xl font-bold font-display tracking-tight ${
+            isDark ? 'text-white' : 'text-gray-950'
+          }`}>
             Which vehicle did you observe?
           </h1>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className={`text-xs mt-0.5 ${
+            isDark ? 'text-white/60' : 'text-gray-600'
+          }`}>
             Attach an optional vehicle photo, or enter registration details below.
           </p>
 
           {/* ATTACH PHOTO CARD */}
-          <div className="mt-4 p-4 bg-gradient-to-r from-gray-950 via-gray-900 to-[#1A0B12] text-white rounded-2xl border border-rose-500/30 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/10 rounded-full blur-xl pointer-events-none" />
-
+          <div className={`mt-4 p-3.5 rounded-2xl border shadow-inner relative overflow-hidden ${
+            isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200/90'
+          }`}>
             <div className="flex items-center justify-between mb-3 relative z-10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#B81D39] via-rose-600 to-amber-500 text-white flex items-center justify-center shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shadow-xs ${
+                  isDark ? 'bg-[#26282E] border-white/10 text-white' : 'bg-gray-200/80 border-gray-300 text-gray-800'
+                }`}>
                   <Camera className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-black font-display text-white block leading-tight">
+                  <span className={`text-xs font-bold font-display block leading-tight ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}>
                     Attach Vehicle Photo (Optional)
                   </span>
-                  <span className="text-[10px] text-gray-300 block leading-tight">
+                  <span className={`text-[10px] block leading-tight mt-0.5 ${
+                    isDark ? 'text-white/50' : 'text-gray-500'
+                  }`}>
                     Add visual evidence of the vehicle condition or issue
                   </span>
                 </div>
               </div>
               {photoPreview && (
-                <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold rounded-full flex items-center gap-1">
+                <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full flex items-center gap-1">
                   ✓ Photo Attached
                 </span>
               )}
@@ -416,7 +519,7 @@ export function ReportScreen() {
 
             {photoPreview ? (
               <div className="space-y-3 relative z-10">
-                <div className="relative rounded-xl overflow-hidden border border-white/20 bg-black/40 shadow-xs">
+                <div className="relative rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xs">
                   <img
                     src={photoPreview}
                     alt="Vehicle preview"
@@ -425,7 +528,7 @@ export function ReportScreen() {
                   <button
                     type="button"
                     onClick={() => setPhotoPreview(null)}
-                    className="absolute top-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer transition-colors flex items-center gap-1"
+                    className="absolute top-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer transition-colors flex items-center gap-1 border border-white/10"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Remove Photo</span>
@@ -435,12 +538,18 @@ export function ReportScreen() {
             ) : (
               <div className="grid grid-cols-2 gap-2 relative z-10">
                 {/* Take photo with camera */}
-                <label className="p-3 bg-white/10 hover:bg-white/15 border border-white/15 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
-                  <div className="w-8 h-8 rounded-lg bg-[#B81D39] text-white flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
+                <label className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all group ${
+                  isDark
+                    ? 'bg-[#1C1E23] hover:bg-[#24262D] border-white/10'
+                    : 'bg-white hover:bg-gray-100 border-gray-200/80 shadow-2xs'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-1 group-hover:scale-105 transition-transform border ${
+                    isDark ? 'bg-[#2A2C34] text-white border-white/10' : 'bg-red-50 text-[#941329] border-red-100'
+                  }`}>
                     <Camera className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-bold text-white">Take Photo</span>
-                  <span className="text-[9px] text-gray-300">Camera</span>
+                  <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Take Photo</span>
+                  <span className={`text-[10px] ${isDark ? 'text-white/50' : 'text-gray-500'}`}>Camera</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -451,12 +560,18 @@ export function ReportScreen() {
                 </label>
 
                 {/* Upload from file/gallery */}
-                <label className="p-3 bg-white/10 hover:bg-white/15 border border-white/15 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 text-white flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
+                <label className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all group ${
+                  isDark
+                    ? 'bg-[#1C1E23] hover:bg-[#24262D] border-white/10'
+                    : 'bg-white hover:bg-gray-100 border-gray-200/80 shadow-2xs'
+                }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-1 group-hover:scale-105 transition-transform border ${
+                    isDark ? 'bg-[#2A2C34] text-white border-white/10' : 'bg-red-50 text-[#941329] border-red-100'
+                  }`}>
                     <Upload className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-bold text-white">Import Photo</span>
-                  <span className="text-[9px] text-gray-300">Gallery</span>
+                  <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Import Photo</span>
+                  <span className={`text-[10px] ${isDark ? 'text-white/50' : 'text-gray-500'}`}>Gallery</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -468,183 +583,97 @@ export function ReportScreen() {
             )}
           </div>
 
-          {/* OR MANUAL PROVINCE SEARCH */}
-          <div className="mt-5">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Search className="w-3.5 h-3.5 text-[#B81D39]" />
-                <span>1. Select Province</span>
-              </label>
-              {selectedProvince && (
-                <div className="flex items-center gap-2">
-                  <div className="w-20 shrink-0">
-                    <ProvincialPlate provinceCode={selectedProvince.code} className="w-full drop-shadow-2xs" />
-                  </div>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1.5">
-                    <span>✓ {selectedProvince.name} ({selectedProvince.code})</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedProvinceCode(null);
-                        setProvinceSearchQuery('');
-                      }}
-                      className="text-emerald-700/60 hover:text-red-600 transition-colors cursor-pointer text-[10px] ml-0.5 font-black"
-                      title="Clear selected province"
-                    >
-                      ✕
-                    </button>
+          {/* CAPTURE VEHICLE PLATE CARD MATCHING SCREENSHOT */}
+          <div className={`mt-5 p-4 rounded-2xl border transition-colors ${
+            isDark ? 'bg-[#14161B] border-white/10' : 'bg-gray-50 border-gray-200 shadow-2xs'
+          }`}>
+            {/* Header: CAPTURE VEHICLE PLATE + Province: CA indicator */}
+            <div className="flex items-center justify-between mb-3">
+              <div className={`text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-2 ${
+                isDark ? 'text-white/90' : 'text-gray-900'
+              }`}>
+                <Car className="w-4 h-4 text-[#B81D39]" />
+                <span>CAPTURE VEHICLE PLATE</span>
+              </div>
+              <div className={`text-[11px] font-bold ${
+                isDark ? 'text-white/70' : 'text-gray-600'
+              }`}>
+                Province: <span className="font-extrabold text-[#B81D39] dark:text-rose-400">{selectedProvince.code === 'WC' ? 'CA' : selectedProvince.code}</span>
+              </div>
+            </div>
+
+            {/* Horizontal Scrollable/Flex Province Pill Buttons [ GP ] [ CA ] [ ZN ] [ FS ] [ NW ] [ EC ] [ MP ] [ LP ] */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none mb-3">
+              {['GP', 'CA', 'ZN', 'FS', 'NW', 'EC', 'MP', 'LP'].map((code) => {
+                const actualCode = code === 'LP' ? 'L' : code === 'CA' ? 'WC' : code;
+                const isSelected = selectedProvince.code === actualCode || (code === 'CA' && selectedProvince.code === 'WC');
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => handleProvinceSelect(actualCode)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer shrink-0 uppercase border ${
+                      isSelected
+                        ? (isDark ? 'bg-[#2A2E39] text-white border-white/40 ring-1 ring-white/20' : 'bg-[#941329] text-white border-[#941329] shadow-2xs')
+                        : (isDark ? 'bg-[#1E2027] hover:bg-[#282B34] text-white/70 border-white/10' : 'bg-white hover:bg-gray-100 text-gray-800 border-gray-200')
+                    }`}
+                  >
+                    {code}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Provincial Plate Preview & Registration Number Input */}
+            <div>
+              <InteractiveProvincialPlateInput
+                provinceCode={selectedProvince.code}
+                value={plateNumber}
+                onChange={(val) => {
+                  setPlateNumber(val);
+                  setPlate(getCombinedPlate(val, selectedProvince.code));
+                }}
+                placeholder={selectedProvince.plateExample}
+                autoFocus
+                dark={isDark}
+              />
+
+              {user?.defaultPlate && plateNumber === user.defaultPlate && (
+                <div className="mt-1.5 flex items-center justify-between px-1 text-[10px]">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                    <span>✓ Pre-filled from Settings default plate</span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('settings')}
+                    className={`font-semibold underline cursor-pointer ${
+                      isDark ? 'text-white/70 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Settings
+                  </button>
                 </div>
               )}
             </div>
-
-            {/* Search Engine Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                <Search className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={provinceSearchQuery}
-                onChange={(e) => setProvinceSearchQuery(e.target.value)}
-                placeholder="Search by province name (e.g. Gauteng, Western Cape) or code (GP, WC)..."
-                className="w-full pl-9 pr-8 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-medium text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/30 focus:border-[#B81D39] transition-all shadow-2xs cursor-text"
-              />
-              {provinceSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setProvinceSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
-                  title="Clear search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Matching Provinces Results (only displayed when actively typing a search query) */}
-            {provinceSearchQuery.trim().length > 0 && (
-              <div className="mt-2.5 animate-in fade-in duration-200">
-                {filteredProvinces.length === 0 ? (
-                  <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-2xl text-center">
-                    <p className="text-xs text-gray-700 font-bold">
-                      No provinces match "{provinceSearchQuery}".
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      Search by province name (e.g. Gauteng, Western Cape) or code (e.g. GP, WC, ZN).
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
-                    <div className="text-[10px] text-gray-400 font-semibold px-1 mb-1">
-                      Found {filteredProvinces.length} {filteredProvinces.length === 1 ? 'province match' : 'province matches'}:
-                    </div>
-                    {filteredProvinces.map((prov) => {
-                      const isSelected = selectedProvinceCode === prov.code;
-                      return (
-                        <button
-                          key={prov.code}
-                          type="button"
-                          onClick={() => {
-                            handleProvinceSelect(prov.code);
-                            setProvinceSearchQuery('');
-                          }}
-                          className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer group shadow-2xs gap-2 ${
-                            isSelected
-                              ? 'border-[#B81D39] bg-red-50 ring-2 ring-[#B81D39]/30'
-                              : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-8 h-8 rounded-lg bg-gray-950 group-hover:bg-[#B81D39] text-white font-mono font-black text-xs flex items-center justify-center transition-colors shrink-0">
-                              {prov.code}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors truncate">
-                                {prov.name} ({prov.code})
-                              </div>
-                              <div className="text-[10px] text-gray-400 truncate">
-                                Province Code: {prov.code} · South Africa
-                              </div>
-                            </div>
-                          </div>
-                          <div className="w-24 shrink-0 text-right">
-                            <ProvincialPlate provinceCode={prov.code} className="w-full drop-shadow-2xs" />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 2. Number Plate Input (South African Provincial Plate) */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                2. Registration Number Plate
-              </label>
-            </div>
-
-            {selectedProvince ? (
-              <>
-                {/* Authentic South African Provincial Plate with Live Dynamic Typing */}
-                <InteractiveProvincialPlateInput
-                  provinceCode={selectedProvince.code}
-                  value={plateNumber}
-                  onChange={(val) => {
-                    setPlateNumber(val);
-                    setPlate(getCombinedPlate(val, selectedProvince.code));
-                  }}
-                  placeholder={selectedProvince.plateExample}
-                  autoFocus
-                />
-
-                {user?.defaultPlate && plateNumber === user.defaultPlate && (
-                  <div className="mt-1.5 flex items-center justify-between px-1 text-[10px]">
-                    <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <span>✓ Pre-filled from Settings default plate</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('settings')}
-                      className="text-[#B81D39] font-semibold hover:underline cursor-pointer"
-                    >
-                      Settings
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl text-center text-xs text-gray-500">
-                <span className="font-semibold text-gray-700 block">Plate Input Locked</span>
-                <span className="text-[11px] text-gray-400 mt-0.5 block">
-                  Search and select a province in step 1 above to enter the vehicle plate number.
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Privacy reassurance callout */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">
-            <Shield className="w-5 h-5 text-[#B81D39] shrink-0 mt-0.5" />
-            <div className="text-xs text-gray-600 leading-relaxed">
-              <strong className="text-gray-900 block font-semibold mb-0.5">
+          <div className={`mt-5 p-3.5 rounded-2xl border flex items-start gap-3 ${
+            isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div className={`text-xs leading-relaxed ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
+              <strong className={`block font-semibold mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Anonymous to the recipient
               </strong>
               Your account identity is strictly protected. The vehicle owner will only receive the neutral observation.
             </div>
           </div>
 
+          {/* High-contrast Continue Button */}
           <div className="mt-6">
             <button
               onClick={() => {
-                if (!selectedProvince) {
-                  setError('Please search and select a province through the search engine first');
-                  return;
-                }
                 const combined = getCombinedPlate(plateNumber, selectedProvince.code);
                 if (plateNumber.trim().length >= 2) {
                   setPlate(combined);
@@ -654,11 +683,11 @@ export function ReportScreen() {
                   setError('Please enter a valid registration number');
                 }
               }}
-              disabled={!selectedProvince || plateNumber.trim().length < 2}
-              className={`w-full py-3.5 px-4 font-bold text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                selectedProvince && plateNumber.trim().length >= 2
-                  ? 'bg-[#B81D39] hover:bg-[#9E142C] text-white shadow-red-900/20 active:scale-[0.99]'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+              disabled={plateNumber.trim().length < 2}
+              className={`w-full py-3.5 px-4 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                plateNumber.trim().length >= 2
+                  ? (isDark ? 'bg-white hover:bg-gray-100 text-gray-950 active:scale-[0.99]' : 'bg-[#941329] hover:bg-[#7a0f21] text-white active:scale-[0.99]')
+                  : (isDark ? 'bg-[#222428] text-white/30 cursor-not-allowed shadow-none' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none')
               }`}
             >
               <span>Continue to select issue</span>
@@ -671,54 +700,74 @@ export function ReportScreen() {
       {/* STEP 2: CATEGORY & ISSUE SELECTION */}
       {step === 2 && (
         <div>
-          <div className="flex items-center gap-3 mb-2.5">
-            <div className="w-28 shrink-0">
+          <div className={`flex items-center gap-3 mb-3 p-2 border rounded-2xl ${
+            isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="w-24 shrink-0">
               <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
             </div>
-            <span className="text-xs text-gray-500 font-medium">Selected vehicle</span>
+            <span className={`text-xs font-medium ${isDark ? 'text-white/70' : 'text-gray-600'}`}>Selected vehicle</span>
           </div>
 
-          <h2 className="text-2xl font-bold font-display text-gray-950">
+          {/* Top Squircle Badge */}
+          <div className="pro-squircle mb-3.5">
+            {currentCatStyle.icon}
+          </div>
+
+          <h2 className={`text-xl font-bold font-display tracking-tight ${
+            isDark ? 'text-white' : 'text-gray-950'
+          }`}>
             What did you observe?
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className={`text-xs mt-0.5 ${
+            isDark ? 'text-white/60' : 'text-gray-600'
+          }`}>
             Choose the category and specific issue.
           </p>
 
-          {/* 3 Category Segmented Tabs or Active Category Preset Header */}
+          {/* 3 Category Segmented Tabs */}
           {reportCategoryPreset ? (
-            <div className="mt-4 p-3.5 bg-red-50/80 border border-red-200/60 rounded-2xl flex items-center justify-between shadow-2xs">
+            <div className={`mt-4 p-3.5 border rounded-2xl flex items-center justify-between shadow-inner ${
+              isDark
+                ? getCategoryStyle(selectedCategory).badgeBg
+                : 'bg-rose-50/90 border-rose-200 text-gray-950'
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#B81D39] text-white rounded-xl shadow-xs shrink-0">
-                  {selectedCategory === 'driver_behaviour' ? (
-                    <Shield className="w-5 h-5" />
-                  ) : selectedCategory === 'road_violation' ? (
-                    <AlertTriangle className="w-5 h-5" />
-                  ) : (
-                    <Car className="w-5 h-5" />
-                  )}
+                <div className={`p-2 rounded-xl shrink-0 ${getCategoryStyle(selectedCategory).iconBg}`}>
+                  {getCategoryStyle(selectedCategory).icon}
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-gray-950 block leading-tight">
-                    {currentCategoryData.title}
+                  <span className={`text-xs font-bold block leading-tight ${
+                    isDark ? 'text-white' : 'text-gray-950 font-black'
+                  }`}>
+                    {getCategoryStyle(selectedCategory).title}
                   </span>
-                  <span className="text-[11px] text-gray-600 mt-0.5 block leading-snug">
-                    {currentCategoryData.subtitle}
+                  <span className={`text-[11px] mt-0.5 block leading-snug ${
+                    isDark ? 'text-white/60' : 'text-gray-800 font-semibold'
+                  }`}>
+                    {getCategoryStyle(selectedCategory).subtitle}
                   </span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setReportCategoryPreset(null)}
-                className="text-[11px] font-bold text-[#B81D39] hover:text-[#9E142C] hover:underline shrink-0 bg-white/80 border border-red-200/80 px-2.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
+                className={`text-[11px] font-bold border px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  isDark
+                    ? 'text-white bg-[#222428] hover:bg-[#2A2C32] border-white/10'
+                    : 'text-gray-900 bg-white hover:bg-gray-100 border-gray-300 shadow-xs'
+                }`}
               >
                 All categories
               </button>
             </div>
           ) : (
-            <div className="mt-4 grid grid-cols-3 gap-1.5 p-1 bg-gray-100 rounded-xl">
+            <div className={`mt-4 p-1 rounded-2xl border grid grid-cols-3 gap-1 ${
+              isDark ? 'bg-[#131417] border-white/[0.06]' : 'bg-gray-100 border-gray-200'
+            }`}>
               {CATEGORIES.map((cat) => {
                 const isSelected = selectedCategory === cat.id;
+                const catStyle = getCategoryStyle(cat.id);
                 return (
                   <button
                     key={cat.id}
@@ -726,58 +775,57 @@ export function ReportScreen() {
                       setSelectedCategory(cat.id);
                       setSelectedIssueCode('');
                     }}
-                    className={`py-2 px-1 text-[11px] font-semibold rounded-lg transition-all text-center leading-tight ${
+                    className={`py-2.5 px-1.5 text-xs font-bold rounded-xl transition-all text-center leading-tight flex items-center justify-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-white text-gray-950 shadow-xs'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? (isDark ? 'bg-[#2D3036] text-white shadow-xs border border-white/10' : 'bg-white text-gray-950 shadow-xs border border-gray-200')
+                        : (isDark ? 'text-white/50 hover:text-white/80 bg-transparent' : 'text-gray-500 hover:text-gray-900 bg-transparent')
                     }`}
                   >
-                    {cat.title}
+                    <span className={`w-2 h-2 rounded-full ${isSelected ? catStyle.iconBg : (isDark ? 'bg-white/30' : 'bg-gray-400')}`} />
+                    <span className="truncate">{cat.title}</span>
                   </button>
                 );
               })}
             </div>
           )}
 
-          {/* Issues List with Radio selection */}
+          {/* Issues List */}
           <div className="mt-4 space-y-2 max-h-[46vh] overflow-y-auto pr-1">
             {currentCategoryData.issues.map((issue) => {
               const isChecked = selectedIssueCode === issue.code;
               return (
                 <label
                   key={issue.code}
-                  className={`block p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all flex items-start gap-3 ${
                     isChecked
-                      ? 'border-[#B81D39] bg-red-50/60 ring-2 ring-[#B81D39]/20'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                      ? (isDark ? 'border-white/30 bg-[#242730] ring-1 ring-white/20' : 'border-[#941329] bg-red-50/60 ring-1 ring-[#941329]/20')
+                      : (isDark ? 'border-white/[0.08] bg-[#141518] hover:bg-[#1D1F24]' : 'border-gray-200 bg-white hover:bg-gray-50')
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="radio"
-                      name="issue"
-                      checked={isChecked}
-                      onChange={() => setSelectedIssueCode(issue.code)}
-                      className="mt-1 accent-[#B81D39]"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-gray-900 block">
-                        {issue.title}
-                      </span>
-                      <span className="text-[11px] text-gray-500 leading-snug block mt-0.5">
-                        {issue.description}
-                      </span>
-                    </div>
+                  <input
+                    type="radio"
+                    name="issue"
+                    checked={isChecked}
+                    onChange={() => setSelectedIssueCode(issue.code)}
+                    className="mt-1 accent-[#941329]"
+                  />
+                  <div>
+                    <span className={`text-xs font-bold block ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      {issue.title}
+                    </span>
+                    <span className={`text-[11px] leading-snug block mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
+                      {issue.description}
+                    </span>
                   </div>
                 </label>
               );
             })}
           </div>
 
-          {/* If "Other" chosen, provide text field */}
+          {/* If "Other" chosen */}
           {isOther && (
             <div className="mt-3">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
+              <label className={`block text-xs font-semibold mb-1 ${isDark ? 'text-white/70' : 'text-gray-700'}`}>
                 Describe the specific issue:
               </label>
               <input
@@ -786,7 +834,11 @@ export function ReportScreen() {
                 onChange={(e) => setCustomOtherText(e.target.value)}
                 placeholder="e.g. Passenger wing mirror folded in..."
                 maxLength={80}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39]"
+                className={`w-full px-3 py-2.5 text-xs border rounded-xl focus:outline-none transition-all ${
+                  isDark
+                    ? 'bg-[#131417] border-white/10 focus:bg-[#17181D] focus:border-white/30 text-white placeholder:text-white/30'
+                    : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#941329] text-gray-900 placeholder:text-gray-400'
+                }`}
               />
             </div>
           )}
@@ -794,7 +846,9 @@ export function ReportScreen() {
           <div className="mt-6 flex gap-2">
             <button
               onClick={() => setStep(1)}
-              className="w-1/3 py-3 border border-gray-200 text-gray-600 font-bold text-xs rounded-2xl hover:bg-gray-50"
+              className={`w-1/3 py-3.5 border font-bold text-xs rounded-2xl transition-all cursor-pointer ${
+                isDark ? 'bg-[#222428] hover:bg-[#2A2C32] border-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
+              }`}
             >
               Back
             </button>
@@ -808,9 +862,14 @@ export function ReportScreen() {
                 }
               }}
               disabled={!selectedIssueCode}
-              className="w-2/3 py-3 bg-[#B81D39] hover:bg-[#9E142C] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-900/20 disabled:opacity-40"
+              className={`w-2/3 py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                selectedIssueCode
+                  ? (isDark ? 'bg-white hover:bg-gray-100 text-gray-950 active:scale-[0.99]' : 'bg-[#941329] hover:bg-[#7a0f21] text-white active:scale-[0.99]')
+                  : (isDark ? 'bg-[#222428] text-white/30 cursor-not-allowed shadow-none' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none')
+              }`}
             >
-              Next: Optional Details
+              <span>Next: Optional Details</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -819,27 +878,35 @@ export function ReportScreen() {
       {/* STEP 3: OPTIONAL NOTE & PHOTO */}
       {step === 3 && (
         <div>
-          <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 mb-4">
+          <div className={`rounded-2xl p-3 border mb-4 ${
+            isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
+          }`}>
             <div className="flex items-center justify-between gap-3 text-xs">
-              <div className="w-28 shrink-0">
+              <div className="w-24 shrink-0">
                 <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
               </div>
-              <span className="font-bold text-gray-900 truncate">
+              <span className={`font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {isOther ? customOtherText || 'Other issue' : currentIssue?.title}
               </span>
             </div>
           </div>
 
-          <h2 className="text-xl font-black font-display text-gray-950">
+          <div className="pro-squircle mb-3.5">
+            <Send className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+          </div>
+
+          <h2 className={`text-xl font-bold font-display tracking-tight ${isDark ? 'text-white' : 'text-gray-950'}`}>
             Add context (Optional)
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className={`text-xs mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
             Keep your note neutral and helpful. It will be delivered verbatim.
           </p>
 
           <div className="mt-4 space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${
+                isDark ? 'text-white/60' : 'text-gray-600'
+              }`}>
                 Note for the driver (Optional)
               </label>
               <textarea
@@ -848,16 +915,24 @@ export function ReportScreen() {
                 onChange={(e) => setCustomNote(e.target.value)}
                 placeholder="e.g. Noticed while waiting at the traffic light on Main Road..."
                 maxLength={400}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39]"
+                className={`w-full p-3.5 border rounded-2xl text-xs font-medium focus:outline-none transition-all shadow-inner ${
+                  isDark
+                    ? 'bg-[#131417] border-white/10 focus:bg-[#17181D] focus:border-white/30 text-white placeholder:text-white/35'
+                    : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#941329] text-gray-900 placeholder:text-gray-400'
+                }`}
               />
-              <div className="text-right text-[10px] text-gray-400 mt-1">
+              <div className={`text-right text-[10px] mt-1 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
                 {customNote.length}/400
               </div>
             </div>
 
             {/* Mandatory Neutral Language Reminder */}
-            <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-2xl text-xs text-blue-900 leading-relaxed">
-              <span className="font-semibold block mb-0.5">How this appears to the driver:</span>
+            <div className={`p-3.5 border rounded-2xl text-xs leading-relaxed ${
+              isDark
+                ? 'bg-[#131417] border-blue-500/20 text-blue-200'
+                : 'bg-blue-50 border-blue-200 text-blue-900'
+            }`}>
+              <span className={`font-semibold block mb-0.5 ${isDark ? 'text-blue-100' : 'text-blue-950'}`}>How this appears to the driver:</span>
               "A road user reported a possible observation: <strong>{currentIssue?.title}</strong>. Please check when safe."
             </div>
           </div>
@@ -865,14 +940,18 @@ export function ReportScreen() {
           <div className="mt-6 flex gap-2">
             <button
               onClick={() => setStep(2)}
-              className="w-1/3 py-3 border border-gray-200 text-gray-600 font-bold text-xs rounded-2xl hover:bg-gray-50"
+              className={`w-1/3 py-3.5 border font-bold text-xs rounded-2xl transition-all cursor-pointer ${
+                isDark ? 'bg-[#222428] hover:bg-[#2A2C32] border-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
+              }`}
             >
               Back
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="w-2/3 py-3.5 bg-[#B81D39] hover:bg-[#9E142C] text-white font-black text-sm rounded-2xl shadow-lg shadow-red-900/25 flex items-center justify-center gap-2 disabled:opacity-50"
+              className={`w-2/3 py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
+                isDark ? 'bg-white hover:bg-gray-100 text-gray-950' : 'bg-[#941329] hover:bg-[#7a0f21] text-white'
+              }`}
             >
               {isSubmitting ? (
                 'Sending safely...'
@@ -887,14 +966,14 @@ export function ReportScreen() {
         </div>
       )}
 
-      {/* STEP 4: RECORDED CONFIRMATION (Rule 10) */}
+      {/* STEP 4: RECORDED CONFIRMATION */}
       {step === 4 && submissionResult && (
-        <div className="text-center pt-3 animate-in fade-in duration-300">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-9 h-9 stroke-[2.2]" />
+        <div className="text-center pt-2 animate-in fade-in duration-300">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
+            <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
           </div>
 
-          <h2 className="text-2xl font-black font-display text-gray-950">
+          <h2 className={`text-xl font-bold font-display tracking-tight ${isDark ? 'text-white' : 'text-gray-950'}`}>
             Observation Recorded
           </h2>
 
@@ -902,13 +981,15 @@ export function ReportScreen() {
             <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
           </div>
 
-          {/* Rule 10: "Never say an alert was delivered unless the system actually recorded that it was" */}
-          <div className="mt-2 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-left text-xs leading-relaxed space-y-2">
-            <div className="flex items-center gap-2 text-gray-900 font-semibold">
-              <Clock className="w-4 h-4 text-[#B81D39]" />
+          {/* Delivery status verification */}
+          <div className={`mt-2 p-4 border rounded-2xl text-left text-xs leading-relaxed space-y-2 ${
+            isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className={`flex items-center gap-2 font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Delivery Status Verification:</span>
             </div>
-            <p className="text-gray-700">
+            <p className={`${isDark ? 'text-white/70' : 'text-gray-600'}`}>
               {submissionResult.statusMessage}
             </p>
           </div>
@@ -916,13 +997,17 @@ export function ReportScreen() {
           <div className="mt-6 space-y-2">
             <button
               onClick={() => setActiveTab('home')}
-              className="w-full py-3.5 bg-gray-900 hover:bg-black text-white font-bold text-sm rounded-2xl transition-all"
+              className={`w-full py-3.5 font-bold text-xs rounded-2xl transition-all shadow-lg cursor-pointer ${
+                isDark ? 'bg-white hover:bg-gray-100 text-gray-950' : 'bg-[#941329] hover:bg-[#7a0f21] text-white'
+              }`}
             >
               Return to Home
             </button>
             <button
               onClick={handleStartFresh}
-              className="w-full py-3 border border-gray-200 text-gray-700 font-bold text-xs rounded-2xl hover:bg-gray-50"
+              className={`w-full py-3 border font-bold text-xs rounded-2xl transition-all cursor-pointer ${
+                isDark ? 'bg-[#222428] hover:bg-[#2A2C32] border-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
+              }`}
             >
               Report Another Vehicle
             </button>

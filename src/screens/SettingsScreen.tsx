@@ -28,6 +28,8 @@ import {
   Trash2,
   User as UserIcon,
   Database,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export function SettingsScreen() {
@@ -41,6 +43,8 @@ export function SettingsScreen() {
     signOut,
     setIsAuthModalOpen,
     isDemoAccount,
+    theme,
+    setTheme,
   } = useApp();
 
   // Database and security status
@@ -165,9 +169,9 @@ export function SettingsScreen() {
   };
 
   return (
-    <div className="pb-28 pt-2 px-3 max-w-[420px] mx-auto text-gray-900 space-y-3">
+    <div className={`pb-28 pt-2 px-3 max-w-[420px] mx-auto space-y-3 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
       {/* 1. Header Card - Compact */}
-      <div className="bg-white rounded-[28px] px-5 py-4 crimson-card-shadow relative overflow-hidden">
+      <div className="glass-card rounded-[28px] px-5 py-4 crimson-card-shadow relative overflow-hidden">
         {/* Top Dark Capsule Pill */}
         <div className="flex items-center justify-between mb-2">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#0D1829] text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
@@ -176,7 +180,9 @@ export function SettingsScreen() {
 
           <button
             onClick={() => setActiveTab('home')}
-            className="text-xs font-bold text-gray-400 hover:text-gray-900 flex items-center gap-1 transition-colors"
+            className={`text-xs font-bold flex items-center gap-1 transition-colors ${
+              theme === 'dark' ? 'text-white/60 hover:text-white' : 'text-gray-400 hover:text-gray-900'
+            }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back</span>
@@ -213,8 +219,77 @@ export function SettingsScreen() {
         )}
       </div>
 
-      {/* 2. Primary Feature: DEFAULT NUMBER PLATE SETTINGS */}
-      <div className="bg-white rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+      {/* 2. THEME & APPEARANCE PREFERENCE */}
+      <div className="glass-card rounded-[32px] p-5 crimson-card-shadow relative overflow-hidden">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">
+              {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </div>
+            <h2 className="text-base font-black font-display text-gray-950">
+              Appearance & Theme
+            </h2>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-red-400/40 text-[#B81D39] bg-red-50/50">
+            {theme === 'dark' ? 'Dark Mode Active' : 'Light Mode Active'}
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-500 mb-3.5 leading-relaxed">
+          Switch between Dark Mode (deep black cards & nav dock) and Light Mode (crisp white cards & nav dock). All red indicator cards and live background remain unchanged.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+              theme === 'dark'
+                ? 'bg-[#121316] border-[#B81D39] text-white shadow-lg ring-2 ring-[#B81D39]/30'
+                : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-7 h-7 rounded-xl bg-[#1F2228] border border-white/10 flex items-center justify-center text-amber-300">
+                <Moon className="w-4 h-4" />
+              </div>
+              {theme === 'dark' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-black">Dark Mode</div>
+              <div className="text-[10px] opacity-70 mt-0.5">Black cards & dock</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+              theme === 'light'
+                ? 'bg-white border-[#B81D39] text-gray-950 shadow-lg ring-2 ring-[#B81D39]/30'
+                : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500">
+                <Sun className="w-4 h-4" />
+              </div>
+              {theme === 'light' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-black">Light Mode</div>
+              <div className="text-[10px] opacity-70 mt-0.5">White cards & dock</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Primary Feature: DEFAULT NUMBER PLATE SETTINGS */}
+      <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">
@@ -383,6 +458,7 @@ export function SettingsScreen() {
             value={plateInput}
             onChange={setPlateInput}
             placeholder={PROVINCE_DEFAULT_PLATES[normalizeProvinceCode(selectedProvinceCode)]}
+            dark={theme === 'dark'}
           />
 
           <div className="flex items-center justify-between mt-1.5 px-1 text-[11px] text-gray-400">
@@ -480,7 +556,7 @@ export function SettingsScreen() {
       </div>
 
       {/* 3. NOTIFICATION & SMS SETTINGS */}
-      <div className="bg-white rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+      <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">
             <Bell className="w-4 h-4" />
@@ -521,7 +597,7 @@ export function SettingsScreen() {
 
       {/* 4. ACCOUNT SWITCHER (Exclusively for Demo Accounts) or ACCOUNT SESSION (For Real Users) */}
       {isDemoAccount ? (
-        <div className="bg-white rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+        <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">
@@ -606,7 +682,7 @@ export function SettingsScreen() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+        <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">
@@ -683,7 +759,7 @@ export function SettingsScreen() {
       )}
 
       {/* 5. DATABASE PERSISTENCE & SYSTEM SECURITY */}
-      <div className="bg-white rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+      <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-red-100 text-[#941329] flex items-center justify-center">

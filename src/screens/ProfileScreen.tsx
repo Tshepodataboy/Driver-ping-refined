@@ -223,7 +223,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center shrink-0 group-hover:bg-red-50 group-hover:text-[#B81D39] transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
                 <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -242,7 +242,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-red-50 group-hover:text-[#B81D39] transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
                 <Users className="w-4 h-4 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -267,7 +267,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-red-50 group-hover:text-[#B81D39] transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
                 <HelpCircle className="w-4 h-4 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -286,7 +286,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 group-hover:bg-red-50 group-hover:text-[#B81D39] transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
                 <Info className="w-4 h-4 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">

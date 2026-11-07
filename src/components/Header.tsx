@@ -1,23 +1,25 @@
 import React from 'react';
 import { useApp } from '../context/AppContext.js';
-import { Bell } from 'lucide-react';
+import { Bell, Sun, Moon } from 'lucide-react';
 
 export function Header() {
   const {
     activeTab,
     unreadAlertsCount,
     setActiveTab,
+    theme,
+    toggleTheme,
   } = useApp();
 
   return (
-    <header className="sticky top-0 z-30 bg-[#941329]/80 backdrop-blur-xl border-b border-white/10 text-white transition-colors">
+    <header className="sticky top-0 z-40 w-full shrink-0 bg-[#941329]/90 backdrop-blur-xl border-b border-white/10 text-white transition-colors">
       <div className="max-w-[420px] mx-auto px-4 h-14 flex items-center justify-between">
         {/* Brand Zone */}
         <button
           onClick={() => setActiveTab('home')}
           className="flex items-center gap-2 text-left group focus:outline-none cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-xl glass-card flex items-center justify-center shadow-md transition-transform group-hover:scale-105 p-1">
+          <div className="w-8 h-8 rounded-xl bg-white border border-white/90 flex items-center justify-center shadow-md transition-transform group-hover:scale-105 p-1">
             <img
               src="https://res.cloudinary.com/dwd83begj/image/upload/v1792686945/logo_icon-removebg-preview_e6k6ne.png"
               alt="Driver Ping Logo"
@@ -36,12 +38,27 @@ export function Header() {
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
+          {/* Light / Dark Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2 rounded-full transition-all focus:outline-none border cursor-pointer bg-white/15 hover:bg-white/25 text-white border-white/15 flex items-center justify-center active:scale-95"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle light and dark mode"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-300 transition-transform duration-300 hover:rotate-45" />
+            ) : (
+              <Moon className="w-4 h-4 text-white transition-transform duration-300 hover:-rotate-12" />
+            )}
+          </button>
+
           {/* Alerts Bell (Alerts on Header only) */}
           <button
             onClick={() => setActiveTab('alerts')}
             className={`relative p-2 rounded-full transition-all focus:outline-none border cursor-pointer ${
               activeTab === 'alerts'
-                ? 'glass-card text-[#941329] border-white shadow-md'
+                ? 'bg-white text-[#941329] border-white shadow-md'
                 : 'bg-white/15 hover:bg-white/25 text-white border-white/15'
             }`}
             title="Alerts - Notifications and reports"

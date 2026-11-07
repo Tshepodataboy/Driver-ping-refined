@@ -113,12 +113,12 @@ export function AlertsScreen() {
         </div>
 
         {filteredAlerts.length === 0 ? (
-          <div className="bg-gray-50/80 rounded-2xl p-8 text-center border border-gray-100 shadow-xs mt-2">
+          <div className="bg-gray-50/80 rounded-2xl p-8 text-center border border-gray-200/80 shadow-xs mt-2">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <h2 className="text-base font-bold text-gray-900 font-display">
+            <h2 className="text-base font-bold text-gray-950 font-display">
               No alerts found
             </h2>
-            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+            <p className="text-xs text-gray-600 font-medium mt-1 max-w-xs mx-auto">
               Everything is clear. When road users submit observations for your vehicles, they will appear here.
             </p>
           </div>
@@ -130,12 +130,12 @@ export function AlertsScreen() {
                 switch (cat) {
                   case 'vehicle_condition':
                     return {
-                      bg: 'bg-red-50 text-[#941329]',
+                      bg: 'bg-red-100 text-[#941329] border border-red-200',
                       icon: <Car className="w-5 h-5 stroke-[2.2]" />,
                     };
                   case 'driver_behaviour':
                     return {
-                      bg: 'bg-blue-50 text-[#1e40af]',
+                      bg: 'bg-blue-100 text-[#1e40af] border border-blue-200',
                       icon: (
                         <svg
                           className="w-5 h-5"
@@ -156,7 +156,7 @@ export function AlertsScreen() {
                     };
                   case 'road_violation':
                     return {
-                      bg: 'bg-amber-50 text-[#d97706]',
+                      bg: 'bg-amber-100 text-[#b45309] border border-amber-200',
                       icon: (
                         <svg
                           className="w-5 h-5"
@@ -175,12 +175,12 @@ export function AlertsScreen() {
                     };
                   case 'emergency':
                     return {
-                      bg: 'bg-red-50 text-[#dc2626]',
+                      bg: 'bg-red-100 text-[#dc2626] border border-red-200',
                       icon: <Siren className="w-5 h-5 stroke-[2.2]" />,
                     };
                   default:
                     return {
-                      bg: 'bg-red-50 text-[#941329]',
+                      bg: 'bg-red-100 text-[#941329] border border-red-200',
                       icon: <Car className="w-5 h-5 stroke-[2.2]" />,
                     };
                 }
@@ -195,7 +195,7 @@ export function AlertsScreen() {
                     setActionType(null);
                     setActionNote('');
                   }}
-                  className="w-full glass-card hover:brightness-110 text-white p-4 rounded-2xl shadow-sm flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group border border-rose-300/20"
+                  className="w-full bg-white hover:bg-gray-50/90 text-gray-950 p-4 rounded-2xl shadow-md border border-gray-200/90 flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group"
                 >
                   <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3 min-w-0">
@@ -204,7 +204,7 @@ export function AlertsScreen() {
                       </div>
 
                       <div className="min-w-0">
-                        <h2 className="text-xs font-bold text-white group-hover:text-rose-100 truncate">
+                        <h2 className="text-sm font-black font-display text-gray-950 group-hover:text-[#941329] truncate leading-tight">
                           {alert.issueTitle}
                         </h2>
                         <div className="flex items-center gap-2 mt-1.5">
@@ -214,27 +214,27 @@ export function AlertsScreen() {
                               plateText={alert.plateDisplay}
                             />
                           </div>
-                          <span className="text-[10px] text-rose-200/80 font-medium">
+                          <span className="text-[11px] font-bold text-gray-600">
                             {getRelativeTime(alert.createdAt)}
                           </span>
                         </div>
-                        {alert.customNote && (
-                          <p className="text-[11px] text-rose-200/90 mt-1 truncate italic">
-                            "{alert.customNote}"
-                          </p>
-                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       {alert.status === 'needs_review' && (
-                        <span className="text-[9px] font-bold text-white bg-amber-600 px-2 py-0.5 rounded-full shadow-xs">
+                        <span className="text-[10px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-xs">
                           Review
                         </span>
                       )}
                       {alert.status === 'received' && (
-                        <span className="text-[9px] font-bold text-white bg-[#C81950] px-2 py-0.5 rounded-full shadow-xs border border-rose-300/30">
+                        <span className="text-[10px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs">
                           Unread
+                        </span>
+                      )}
+                      {alert.status === 'resolved' && (
+                        <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full shadow-xs">
+                          Resolved
                         </span>
                       )}
                       <button
@@ -244,7 +244,7 @@ export function AlertsScreen() {
                           setSelectedAlert(alert);
                           setActionType('resolve');
                         }}
-                        className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-rose-200 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] flex items-center justify-center transition-colors cursor-pointer border border-gray-200"
                         title="Dismiss alert"
                         aria-label="Dismiss"
                       >
@@ -253,15 +253,21 @@ export function AlertsScreen() {
                     </div>
                   </div>
 
+                  {alert.customNote && (
+                    <p className="text-xs font-semibold text-gray-800 bg-rose-50/60 border border-rose-100/90 px-3 py-2 rounded-xl italic">
+                      "{alert.customNote}"
+                    </p>
+                  )}
+
                   {photo && (
-                    <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-900/5 group/photo w-full">
+                    <div className="relative rounded-xl overflow-hidden border border-gray-200/90 bg-gray-900/5 group/photo w-full mt-1">
                       <img
                         src={photo}
                         alt="Observation attachment preview"
-                        className="w-full h-32 object-cover transition-transform duration-300 group-hover/photo:scale-[1.02]"
+                        className="w-full h-36 object-cover transition-transform duration-300 group-hover/photo:scale-[1.02]"
                       />
-                      <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded-lg text-[10px] font-bold text-white flex items-center gap-1 shadow-xs border border-white/10">
-                        <Camera className="w-3 h-3 text-rose-400" /> Photo Attached
+                      <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/80 backdrop-blur-md rounded-lg text-[10px] font-extrabold text-white flex items-center gap-1.5 shadow-sm border border-white/20">
+                        <Camera className="w-3.5 h-3.5 text-rose-400" /> Photo Attached
                       </div>
                     </div>
                   )}

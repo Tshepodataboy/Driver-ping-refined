@@ -936,6 +936,7 @@ interface InteractiveProvincialPlateInputProps {
   placeholder?: string;
   maxLength?: number;
   autoFocus?: boolean;
+  dark?: boolean;
 }
 
 export function InteractiveProvincialPlateInput({
@@ -947,6 +948,7 @@ export function InteractiveProvincialPlateInput({
   placeholder,
   maxLength = 10,
   autoFocus = false,
+  dark = false,
 }: InteractiveProvincialPlateInputProps) {
   const norm = normalizeProvinceCode(provinceCode);
   const info = getProvinceCodeInfo(norm);
@@ -965,7 +967,7 @@ export function InteractiveProvincialPlateInput({
   return (
     <div className="space-y-2.5">
       {/* Authentic Live Provincial Plate Preview with uneditable province code */}
-      <div className="rounded-none overflow-hidden p-1 bg-white/70 border border-gray-200/80 shadow-md">
+      <div className={`overflow-hidden p-1.5 shadow-md ${dark ? 'rounded-2xl bg-[#131417] border border-white/10' : 'rounded-none bg-white/70 border border-gray-200/80'}`}>
         <ProvincialPlate
           provinceCode={norm}
           plateText={value}
@@ -975,13 +977,21 @@ export function InteractiveProvincialPlateInput({
 
       {/* Input Field with Locked Province Code */}
       <div className="space-y-1 relative">
-        <div className="flex items-stretch rounded-2xl bg-gray-50 border-2 border-gray-300 focus-within:border-[#941329] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#941329]/20 transition-all shadow-inner overflow-hidden">
+        <div className={`flex items-stretch rounded-2xl transition-all shadow-inner overflow-hidden ${
+          dark
+            ? 'bg-[#131417] border border-white/10 focus-within:border-white/30 focus-within:bg-[#17181D] focus-within:ring-2 focus-within:ring-white/10'
+            : 'bg-gray-50 border-2 border-gray-300 focus-within:border-[#941329] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#941329]/20'
+        }`}>
           {info.position === 'prefix' && (
             <div
-              className="flex items-center gap-1.5 px-3.5 bg-gray-200/90 text-gray-800 font-mono font-black text-sm tracking-wider uppercase select-none border-r-2 border-gray-300 shrink-0"
+              className={`flex items-center gap-1.5 px-3.5 font-mono font-black text-sm tracking-wider uppercase select-none shrink-0 ${
+                dark
+                  ? 'bg-[#222428] text-white/90 border-r border-white/10'
+                  : 'bg-gray-200/90 text-gray-800 border-r-2 border-gray-300'
+              }`}
               title={`Province code (${info.codeDisplay}) cannot be edited`}
             >
-              <Lock className="w-3.5 h-3.5 text-gray-600" />
+              <Lock className={`w-3.5 h-3.5 ${dark ? 'text-white/60' : 'text-gray-600'}`} />
               <span>{info.codeDisplay}</span>
             </div>
           )}
@@ -994,7 +1004,9 @@ export function InteractiveProvincialPlateInput({
               placeholder={`e.g. ${effectivePlaceholder}`}
               maxLength={maxLength}
               autoFocus={autoFocus}
-              className="w-full text-center py-2.5 px-8 font-mono font-black text-lg tracking-widest text-gray-900 uppercase focus:outline-none bg-transparent"
+              className={`w-full text-center py-2.5 px-8 font-mono font-black text-lg tracking-widest uppercase focus:outline-none bg-transparent ${
+                dark ? 'text-white placeholder:text-white/30' : 'text-gray-900 placeholder:text-gray-400'
+              }`}
             />
 
             {/* Quick Clear Button */}
@@ -1002,7 +1014,9 @@ export function InteractiveProvincialPlateInput({
               <button
                 type="button"
                 onClick={handleClear}
-                className="absolute right-2 p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-200/60 transition-colors cursor-pointer"
+                className={`absolute right-2 p-1 rounded-full transition-colors cursor-pointer ${
+                  dark ? 'text-white/40 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200/60'
+                }`}
                 title="Clear plate number"
               >
                 <X className="w-4 h-4" />
@@ -1012,19 +1026,23 @@ export function InteractiveProvincialPlateInput({
 
           {info.position === 'suffix' && (
             <div
-              className="flex items-center gap-1.5 px-3.5 bg-gray-200/90 text-gray-800 font-mono font-black text-sm tracking-wider uppercase select-none border-l-2 border-gray-300 shrink-0"
+              className={`flex items-center gap-1.5 px-3.5 font-mono font-black text-sm tracking-wider uppercase select-none shrink-0 ${
+                dark
+                  ? 'bg-[#222428] text-white/90 border-l border-white/10'
+                  : 'bg-gray-200/90 text-gray-800 border-l-2 border-gray-300'
+              }`}
               title={`Province code (${info.codeDisplay}) cannot be edited`}
             >
-              <Lock className="w-3.5 h-3.5 text-gray-600" />
+              <Lock className={`w-3.5 h-3.5 ${dark ? 'text-white/60' : 'text-gray-600'}`} />
               <span>{info.codeDisplay}</span>
             </div>
           )}
         </div>
 
         {/* Clear indication that province code cannot be edited */}
-        <div className="flex items-center text-[11px] text-gray-500 px-1 pt-0.5">
-          <span className="flex items-center gap-1 font-semibold text-gray-600">
-            <Lock className="w-3 h-3 text-gray-400" />
+        <div className="flex items-center text-[11px] px-1 pt-0.5">
+          <span className={`flex items-center gap-1 font-semibold ${dark ? 'text-white/50' : 'text-gray-600'}`}>
+            <Lock className={`w-3 h-3 ${dark ? 'text-white/40' : 'text-gray-400'}`} />
             <span>Province code ({info.codeDisplay}) cannot be edited</span>
           </span>
         </div>

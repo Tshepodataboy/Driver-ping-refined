@@ -109,6 +109,11 @@ interface AppContextType {
     error?: string;
   }>;
 
+  // Theme
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+  toggleTheme: () => void;
+
   // Admin actions
   fetchAdminVerifications: () => Promise<OwnershipVerificationItem[]>;
   reviewVerification: (id: string, decision: 'approved' | 'rejected', notes?: string) => Promise<{ success: boolean; error?: string }>;
@@ -133,6 +138,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState<boolean>(false);
+
+  // Theme management: default to dark, saved in localStorage
+  const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('driver_ping_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    }
+    return 'dark';
+  });
+
+  const setTheme = (newTheme: 'dark' | 'light') => {
+    setThemeState(newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('driver_ping_theme', newTheme);
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  // Sync document root class with active theme
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      if (theme === 'dark') {
+        root.classList.add('dark');
+        root.classList.remove('light');
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      }
+    }
+  }, [theme]);
 
   // Demo account status check
   const isDemoAccount = Boolean(user && DEMO_USER_IDS.includes(user.id));
@@ -776,6 +815,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         submitReport,
         refreshAlerts,
         takeAlertAction,
+        theme,
+        setTheme,
+        toggleTheme,
         fetchAdminVerifications,
         reviewVerification,
         fetchAdminDisputes,

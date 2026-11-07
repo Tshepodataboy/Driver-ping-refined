@@ -15,11 +15,24 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function BottomNav() {
-  const { activeTab, setActiveTab } = useApp();
+  const { activeTab, setActiveTab, theme } = useApp();
+
+  // Hide the floating bottom nav dock when the user is in the report form so it never blocks the Continue button or submit controls
+  if (activeTab === 'report') {
+    return null;
+  }
+
+  const isDark = theme === 'dark';
 
   return (
     <nav className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-3 pointer-events-none safe-area-pb">
-      <div className="pointer-events-auto w-full max-w-[360px] glass-card backdrop-blur-2xl border border-white/80 shadow-[0_14px_40px_rgba(0,0,0,0.38)] rounded-[26px] p-1.5 flex items-center justify-between gap-1 transition-all">
+      <div
+        className={`pointer-events-auto w-full max-w-[360px] backdrop-blur-2xl rounded-[26px] p-1.5 flex items-center justify-between gap-1 transition-all ${
+          isDark
+            ? 'bg-[#121316]/95 border border-white/15 shadow-[0_14px_40px_rgba(0,0,0,0.8)] text-white'
+            : 'bg-[#FAF8F6]/95 border border-white/80 shadow-[0_14px_40px_rgba(0,0,0,0.28)] text-gray-900'
+        }`}
+      >
         {NAV_ITEMS.map((item) => {
           const isActive = activeTab === item.key;
           const Icon = item.icon;
@@ -32,6 +45,8 @@ export function BottomNav() {
               className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer group relative ${
                 isActive
                   ? 'bg-[#B81D39] text-white shadow-md shadow-[#B81D39]/30 scale-[1.02]'
+                  : isDark
+                  ? 'text-white/60 hover:text-white hover:bg-white/10'
                   : 'text-gray-500 hover:text-gray-950 hover:bg-gray-100/70'
               }`}
               title={item.label}
@@ -48,6 +63,8 @@ export function BottomNav() {
                 className={`text-[10px] tracking-tight mt-0.5 leading-none ${
                   isActive
                     ? 'font-black text-white'
+                    : isDark
+                    ? 'font-semibold text-white/60 group-hover:text-white'
                     : 'font-semibold text-gray-500 group-hover:text-gray-900'
                 }`}
               >
