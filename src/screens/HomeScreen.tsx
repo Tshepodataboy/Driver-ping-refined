@@ -27,6 +27,7 @@ import {
   PhoneOff,
   Send,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import {
   ProvincialPlate,
