@@ -156,14 +156,22 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-apiRouter.get('/db-status', (_req: Request, res: Response) => {
+apiRouter.get('/db-status', async (_req: Request, res: Response) => {
+  await db.waitForInit();
   const status = db.getStatus();
+  const aiConfigured = isGeminiConfigured();
   res.json({
     status: 'ok',
     database: status,
+    ai: {
+      configured: aiConfigured,
+      engine: 'Gemini Multimodal OCR & Note Assistant',
+      model: 'gemini-3.5-flash',
+      auditLoggedToSupabase: true,
+    },
     instructions: status.connectedToPostgres
-      ? 'Connected directly to Supabase PostgreSQL.'
-      : 'To connect to your Supabase project, set DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres" in your .env file.',
+      ? 'Connected directly to Supabase PostgreSQL with AI Audit Logging enabled.'
+      : 'To connect to your Supabase project, set DATABASE_URL in your .env file.',
   });
 });
 
@@ -1090,6 +1098,16 @@ Do not include quotation marks, hashtags, or pleasantries like "Hi there". Just 
     });
 
     const suggestedNote = text.trim();
+
+    // Log AI action to Supabase audit_logs
+    await db.createAuditLog({
+      actorId: (req as AuthenticatedRequest).user?.id || null,
+      actionType: 'AI_NOTE_SUGGESTED',
+      targetId: null,
+      targetType: 'ai_engine',
+      detailsJson: { category, issueTitle, modelUsed },
+    }).catch(() => {});
+
     return res.json({ success: true, suggestedNote, modelUsed });
   } catch (error: any) {
     console.error('Gemini suggest-note error:', error);
@@ -1181,6 +1199,20 @@ Analyze this vehicle image and perform character recognition on the license plat
     } catch {
       result = { rawOcrText: '', fullPlate: '', provinceCode: '', uniqueRegistrationNumber: '', observedCondition: '' };
     }
+
+    // Log AI OCR action to Supabase audit_logs
+    await db.createAuditLog({
+      actorId: (req as AuthenticatedRequest).user?.id || null,
+      actionType: 'AI_OCR_PLATE_EXTRACTED',
+      targetId: result.fullPlate || null,
+      targetType: 'license_plate',
+      detailsJson: {
+        rawOcrText: result.rawOcrText,
+        provinceCode: result.provinceCode,
+        uniqueReg: result.uniqueRegistrationNumber,
+        modelUsed,
+      },
+    }).catch(() => {});
 
     return res.json({ success: true, data: result, modelUsed });
   } catch (error: any) {
