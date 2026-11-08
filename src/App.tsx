@@ -68,15 +68,29 @@ function MainApp() {
       {/* Top Header */}
       <Header />
 
-      {/* Main View Area */}
+      {/* Main View Area - screens are kept mounted so theme toggles and tab switching never reset user state */}
       <main className="flex-1 w-full max-w-[420px] mx-auto relative z-10">
-        {activeTab === 'home' && <HomeScreen />}
-        {activeTab === 'report' && <ReportScreen />}
-        {activeTab === 'vehicles' && <VehiclesScreen />}
-        {activeTab === 'alerts' && <AlertsScreen />}
-        {activeTab === 'profile' && <ProfileScreen />}
-        {activeTab === 'settings' && <SettingsScreen />}
-        {activeTab === 'admin' && <AdminScreen />}
+        <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+          <HomeScreen />
+        </div>
+        <div className={activeTab === 'report' ? 'block' : 'hidden'}>
+          <ReportScreen />
+        </div>
+        <div className={activeTab === 'vehicles' ? 'block' : 'hidden'}>
+          <VehiclesScreen />
+        </div>
+        <div className={activeTab === 'alerts' ? 'block' : 'hidden'}>
+          <AlertsScreen />
+        </div>
+        <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
+          <ProfileScreen />
+        </div>
+        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+          <SettingsScreen />
+        </div>
+        <div className={activeTab === 'admin' ? 'block' : 'hidden'}>
+          <AdminScreen />
+        </div>
       </main>
 
       {/* Fixed Bottom Crimson Dock Navigation */}

@@ -19,6 +19,8 @@ import {
   X,
   Upload,
   Siren,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 
 import { SA_PROVINCES, searchProvinces } from '../constants/provinces.js';
@@ -44,25 +46,105 @@ export function ReportScreen() {
 
   const isDark = theme === 'dark';
 
-  // Wizard state
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Wizard state initialized from sessionStorage draft if available
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_step');
+      if (saved) {
+        const num = parseInt(saved, 10);
+        if (num >= 1 && num <= 4) return num as 1 | 2 | 3 | 4;
+      }
+    }
+    return 1;
+  });
 
-  // Form state
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>(
-    user?.defaultProvinceCode || 'GP'
-  );
-  const [plateNumber, setPlateNumber] = useState('');
-  const [plate, setPlate] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>(
-    reportCategoryPreset || 'vehicle_condition'
-  );
-  const [selectedIssueCode, setSelectedIssueCode] = useState<string>('');
-  const [customOtherText, setCustomOtherText] = useState('');
-  const [customNote, setCustomNote] = useState('');
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // Form state initialized from sessionStorage draft if available
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_prov');
+      if (saved) return saved;
+    }
+    return user?.defaultProvinceCode || 'GP';
+  });
+  const [plateNumber, setPlateNumber] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_plate_num');
+      if (saved !== null) return saved;
+    }
+    return '';
+  });
+  const [plate, setPlate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_plate');
+      if (saved !== null) return saved;
+    }
+    return '';
+  });
+  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>(() => {
+    if (reportCategoryPreset) return reportCategoryPreset;
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_cat') as ReportCategory;
+      if (saved) return saved;
+    }
+    return 'vehicle_condition';
+  });
+  const [selectedIssueCode, setSelectedIssueCode] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_issue');
+      if (saved !== null) return saved;
+    }
+    return '';
+  });
+  const [customOtherText, setCustomOtherText] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_other');
+      if (saved !== null) return saved;
+    }
+    return '';
+  });
+  const [customNote, setCustomNote] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_note');
+      if (saved !== null) return saved;
+    }
+    return '';
+  });
+  const [photoPreview, setPhotoPreview] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_draft_photo');
+      if (saved) return saved;
+    }
+    return null;
+  });
+
+  // Automatically save report draft into sessionStorage whenever state updates
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('driver_ping_draft_step', String(step));
+      sessionStorage.setItem('driver_ping_draft_prov', selectedProvinceCode);
+      sessionStorage.setItem('driver_ping_draft_plate_num', plateNumber);
+      sessionStorage.setItem('driver_ping_draft_plate', plate);
+      sessionStorage.setItem('driver_ping_draft_cat', selectedCategory);
+      sessionStorage.setItem('driver_ping_draft_issue', selectedIssueCode);
+      sessionStorage.setItem('driver_ping_draft_other', customOtherText);
+      sessionStorage.setItem('driver_ping_draft_note', customNote);
+      if (photoPreview) {
+        try {
+          sessionStorage.setItem('driver_ping_draft_photo', photoPreview);
+        } catch {
+          // If storage quota exceeded for high-res photo, skip photo caching
+        }
+      } else {
+        sessionStorage.removeItem('driver_ping_draft_photo');
+      }
+    }
+  }, [step, selectedProvinceCode, plateNumber, plate, selectedCategory, selectedIssueCode, customOtherText, customNote, photoPreview]);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanningPlate, setIsScanningPlate] = useState(false);
+  const [isGeneratingNote, setIsGeneratingNote] = useState(false);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submissionResult, setSubmissionResult] = useState<{
     deliveriesRecorded?: number;
@@ -73,6 +155,92 @@ export function ReportScreen() {
 
   // Idempotency key generated per session to prevent accidental double-submits
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => `idemp_${Date.now()}_${Math.random()}`);
+
+  // Two-step plate scanning: 1. Identify province code -> 2. Auto-input unique number
+  const scanPlateWithAi = async (imageDataUrl: string) => {
+    if (!imageDataUrl) return;
+    setIsScanningPlate(true);
+    setAiNotice('AI scanning vehicle photo: identifying province & plate number...');
+    try {
+      const res = await fetch('/api/ai/extract-plate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoBase64: imageDataUrl }),
+      });
+      const data = await res.json();
+      if (res.ok && data.data) {
+        const { rawOcrText, provinceCode, uniqueRegistrationNumber, plateText, fullPlate, observedCondition } = data.data;
+
+        // Step 1: Scan and identify provincial code first
+        let resolvedProv = selectedProvinceCode || 'GP';
+        if (provinceCode) {
+          resolvedProv = normalizeProvinceCode(provinceCode);
+          setSelectedProvinceCode(resolvedProv);
+        }
+
+        // Step 2: Auto-input unique plate number
+        const rawNum = uniqueRegistrationNumber || plateText || fullPlate || rawOcrText;
+        if (rawNum) {
+          const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
+          setPlateNumber(cleanUniqueReg);
+          setPlate(formatFullProvincialPlate(cleanUniqueReg, resolvedProv));
+        }
+
+        // Optional observed hazard
+        if (observedCondition && !customNote) {
+          setCustomNote(observedCondition);
+        }
+
+        const ocrLabel = rawOcrText ? ` [OCR: "${rawOcrText}"]` : '';
+        setAiNotice(`✓ Gemini OCR Scan:${ocrLabel} • Province: ${resolvedProv === 'WC' ? 'CA (Western Cape)' : resolvedProv} • Auto-filled: ${rawNum ? stripProvinceCodeFromInput(rawNum, resolvedProv) : 'detected'}`);
+        setTimeout(() => setAiNotice(null), 5000);
+      } else {
+        setAiNotice(data.error || 'Gemini could not detect a plate clearly.');
+        setTimeout(() => setAiNotice(null), 3000);
+      }
+    } catch {
+      setAiNotice('Failed to scan plate with Gemini.');
+      setTimeout(() => setAiNotice(null), 3000);
+    } finally {
+      setIsScanningPlate(false);
+    }
+  };
+
+  const handleAiScanPlate = async () => {
+    if (photoPreview) {
+      await scanPlateWithAi(photoPreview);
+    }
+  };
+
+  const handleAiSuggestNote = async () => {
+    setIsGeneratingNote(true);
+    setAiNotice(null);
+    try {
+      const res = await fetch('/api/ai/suggest-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issueTitle: isOther ? customOtherText : currentIssue?.title,
+          category: selectedCategory,
+          rawNote: customNote,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.suggestedNote) {
+        setCustomNote(data.suggestedNote);
+        setAiNotice('✓ Gemini drafted a polite road safety note');
+        setTimeout(() => setAiNotice(null), 3000);
+      } else {
+        setAiNotice(data.error || 'Failed to generate note.');
+        setTimeout(() => setAiNotice(null), 3000);
+      }
+    } catch {
+      setAiNotice('Failed to reach Gemini.');
+      setTimeout(() => setAiNotice(null), 3000);
+    } finally {
+      setIsGeneratingNote(false);
+    }
+  };
 
   useEffect(() => {
     if (reportCategoryPreset) {
@@ -149,16 +317,22 @@ export function ReportScreen() {
           ctx.drawImage(img, 0, 0, width, height);
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
           setPhotoPreview(compressedDataUrl);
+          // When image is captured, AI immediately scans plate: 1. Province code, 2. Auto-input unique number
+          scanPlateWithAi(compressedDataUrl);
         } else {
           setPhotoPreview(result);
+          scanPlateWithAi(result);
         }
       };
       img.onerror = () => {
         setPhotoPreview(result);
+        scanPlateWithAi(result);
       };
       img.src = result;
     };
     reader.readAsDataURL(file);
+    // Reset file input value so re-taking with camera triggers change event again
+    e.target.value = '';
   };
 
   // Submit Handler
@@ -193,6 +367,7 @@ export function ReportScreen() {
     setIsSubmitting(false);
 
     if (res.success) {
+      clearDraftStorage();
       setSubmissionResult({
         deliveriesRecorded: res.deliveriesRecorded,
         isQueuedUnclaimed: res.isQueuedUnclaimed,
@@ -205,7 +380,22 @@ export function ReportScreen() {
     }
   };
 
+  const clearDraftStorage = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('driver_ping_draft_step');
+      sessionStorage.removeItem('driver_ping_draft_prov');
+      sessionStorage.removeItem('driver_ping_draft_plate_num');
+      sessionStorage.removeItem('driver_ping_draft_plate');
+      sessionStorage.removeItem('driver_ping_draft_cat');
+      sessionStorage.removeItem('driver_ping_draft_issue');
+      sessionStorage.removeItem('driver_ping_draft_other');
+      sessionStorage.removeItem('driver_ping_draft_note');
+      sessionStorage.removeItem('driver_ping_draft_photo');
+    }
+  };
+
   const handleStartFresh = () => {
+    clearDraftStorage();
     setStep(1);
     setPlateNumber('');
     setPlate('');
@@ -470,11 +660,6 @@ export function ReportScreen() {
       {/* STEP 1: PROVINCE PICKER & NUMBER PLATE INPUT */}
       {step === 1 && (
         <div>
-          {/* Top Squircle Badge matching Reference Image */}
-          <div className="pro-squircle mb-3.5">
-            <Car className={`w-6 h-6 ${isDark ? 'text-white' : 'text-gray-900'}`} />
-          </div>
-
           <h1 className={`text-xl font-bold font-display tracking-tight ${
             isDark ? 'text-white' : 'text-gray-950'
           }`}>
@@ -518,7 +703,7 @@ export function ReportScreen() {
             </div>
 
             {photoPreview ? (
-              <div className="space-y-3 relative z-10">
+              <div className="space-y-2 relative z-10">
                 <div className="relative rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xs">
                   <img
                     src={photoPreview}
@@ -534,6 +719,26 @@ export function ReportScreen() {
                     <span>Remove Photo</span>
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleAiScanPlate}
+                  disabled={isScanningPlate}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 text-white font-bold text-xs shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {isScanningPlate ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isScanningPlate ? 'AI Scanning Plate (Province & Number)...' : 'Re-Scan Plate with AI'}</span>
+                </button>
+
+                {aiNotice && (
+                  <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                    <span className="font-medium text-[11px] leading-tight">{aiNotice}</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 relative z-10">
@@ -904,11 +1109,27 @@ export function ReportScreen() {
 
           <div className="mt-4 space-y-4">
             <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${
-                isDark ? 'text-white/60' : 'text-gray-600'
-              }`}>
-                Note for the driver (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={`block text-[11px] font-semibold uppercase tracking-wider ${
+                  isDark ? 'text-white/60' : 'text-gray-600'
+                }`}>
+                  Note for the driver (Optional)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAiSuggestNote}
+                  disabled={isGeneratingNote}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[11px] font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                  title="Generate a polite, clear observation note with Gemini"
+                >
+                  {isGeneratingNote ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                  )}
+                  <span>{isGeneratingNote ? 'Drafting...' : 'AI Polish Note'}</span>
+                </button>
+              </div>
               <textarea
                 rows={3}
                 value={customNote}
@@ -925,6 +1146,13 @@ export function ReportScreen() {
                 {customNote.length}/400
               </div>
             </div>
+
+            {aiNotice && (
+              <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                <span>{aiNotice}</span>
+              </div>
+            )}
 
             {/* Mandatory Neutral Language Reminder */}
             <div className={`p-3.5 border rounded-2xl text-xs leading-relaxed ${

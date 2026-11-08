@@ -4,6 +4,7 @@ import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:cry
 import { promisify } from 'node:util';
 const scrypt = promisify(scryptCallback);
 import { db, DbUser } from './db.js';
+import { getGeminiClient, isGeminiConfigured, generateGeminiContentWithFallback, Type } from './gemini.js';
 
 export const apiRouter = express.Router();
 
@@ -1047,4 +1048,145 @@ apiRouter.get('/admin/audit-logs', authenticateUser, requireAdmin, async (_req: 
   const logs = await db.getAuditLogs();
   return res.json({ logs });
 });
+
+// ============================================================================
+// GEMINI AI INTEGRATION ROUTES (Server-side @google/genai)
+// ============================================================================
+
+// Check Gemini connection status
+apiRouter.get('/ai/status', (_req: Request, res: Response) => {
+  const configured = isGeminiConfigured();
+  return res.json({
+    configured,
+    project: process.env.GOOGLE_CLOUD_PROJECT || null,
+    projectNumber: process.env.GOOGLE_CLOUD_PROJECT_NUMBER || null,
+    model: 'gemini-3.5-flash',
+  });
+});
+
+// AI Assistant: Generate respectful, helpful vehicle observation ping note
+apiRouter.post('/ai/suggest-note', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    if (!isGeminiConfigured()) {
+      return res.status(503).json({ error: 'Gemini API key is not configured.' });
+    }
+
+    const { issueTitle, category, rawNote } = req.body;
+    if (!issueTitle && !rawNote) {
+      return res.status(400).json({ error: 'Please provide issueTitle or rawNote.' });
+    }
+
+    const prompt = `You are an AI driver assistant for Driver Ping South Africa.
+A driver observed a condition on another vehicle and wants to send a helpful, polite, anonymous SMS/in-app alert to the driver.
+Issue Category: ${category || 'vehicle_condition'}
+Issue Type: ${issueTitle || 'Vehicle condition'}
+User's rough observation note: "${rawNote || ''}"
+
+Generate a polite, clear, and concise message (maximum 1-2 short sentences, under 140 characters, friendly tone suitable for South African road safety).
+Do not include quotation marks, hashtags, or pleasantries like "Hi there". Just the alert note text.`;
+
+    const { text, modelUsed } = await generateGeminiContentWithFallback(prompt, {
+      systemInstruction: 'You write respectful, concise vehicle road safety alert notes for South African drivers.',
+    });
+
+    const suggestedNote = text.trim();
+    return res.json({ success: true, suggestedNote, modelUsed });
+  } catch (error: any) {
+    console.error('Gemini suggest-note error:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to generate note with Gemini.' });
+  }
+});
+
+// AI Assistant: Multimodal Plate Recognition & Hazard Extraction from photo
+apiRouter.post('/ai/extract-plate', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    if (!isGeminiConfigured()) {
+      return res.status(503).json({ error: 'Gemini API key is not configured.' });
+    }
+
+    const { photoBase64 } = req.body;
+    if (!photoBase64 || typeof photoBase64 !== 'string') {
+      return res.status(400).json({ error: 'Photo base64 data is required.' });
+    }
+
+    // Strip data URL header if present (e.g. data:image/jpeg;base64,...)
+    let mimeType = 'image/jpeg';
+    let base64Data = photoBase64;
+    const match = photoBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+    if (match) {
+      mimeType = match[1];
+      base64Data = match[2];
+    }
+
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Data,
+      },
+    };
+
+    const prompt = `You are a high-accuracy Optical Character Recognition (OCR) & Automated License Plate Recognition (ALPR) system for South African motor vehicles.
+Analyze this vehicle image and perform character recognition on the license plate:
+
+1. Perform OCR to read all visible characters printed on the vehicle license plate (rawOcrText).
+2. Identify the South African province indicator (GP, WC/CA, KZN/ZN, EC, FS, MP, LP, NW, NC).
+3. Extract the unique registration sequence (uniqueRegistrationNumber) excluding province codes (e.g. "CF 10 VD", "232-577", "18083").
+4. Return full formatted plate string (fullPlate).
+5. Identify any visible vehicle hazard or defect if present (observedCondition).`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        rawOcrText: {
+          type: Type.STRING,
+          description: "Raw optical character recognition text read directly off the vehicle license plate",
+        },
+        provinceCode: {
+          type: Type.STRING,
+          description: "Identified South African province code (GP, WC, KZN, EC, FS, MP, LP, NW, NC)",
+        },
+        uniqueRegistrationNumber: {
+          type: Type.STRING,
+          description: "Unique registration number stripped of provincial prefix or suffix",
+        },
+        fullPlate: {
+          type: Type.STRING,
+          description: "Full formatted plate string",
+        },
+        observedCondition: {
+          type: Type.STRING,
+          description: "Brief observed vehicle hazard or defect if visible",
+        },
+        confidence: {
+          type: Type.NUMBER,
+          description: "OCR recognition confidence score between 0.0 and 1.0",
+        },
+      },
+      required: ["rawOcrText", "provinceCode", "uniqueRegistrationNumber", "fullPlate"],
+    };
+
+    const { text, modelUsed } = await generateGeminiContentWithFallback(
+      { parts: [imagePart, { text: prompt }] },
+      {
+        responseMimeType: 'application/json',
+        responseSchema,
+        systemInstruction: 'You are a high-precision Optical Character Recognition (OCR) model for vehicle license plates.',
+      }
+    );
+
+    const rawJson = text.trim();
+    let result: any = {};
+    try {
+      result = JSON.parse(rawJson);
+    } catch {
+      result = { rawOcrText: '', fullPlate: '', provinceCode: '', uniqueRegistrationNumber: '', observedCondition: '' };
+    }
+
+    return res.json({ success: true, data: result, modelUsed });
+  } catch (error: any) {
+    console.error('Gemini OCR extract-plate error:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to extract plate OCR details with Gemini.' });
+  }
+});
+
 

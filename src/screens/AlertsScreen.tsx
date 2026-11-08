@@ -25,7 +25,9 @@ import {
 import { ProvincialPlate, detectProvinceFromPlate } from '../components/ProvincialPlate.js';
 
 export function AlertsScreen() {
-  const { alerts, takeAlertAction, refreshAlerts } = useApp();
+  const { alerts, takeAlertAction, refreshAlerts, theme } = useApp();
+
+  const isDark = theme === 'dark';
 
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
@@ -60,52 +62,56 @@ export function AlertsScreen() {
   };
 
   return (
-    <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-gray-900">
-      {/* Floating White Main Alerts Card */}
-      <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
+    <div className={`pb-28 pt-3 px-3 max-w-[420px] mx-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      {/* Floating Main Alerts Card */}
+      <div className={`glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden transition-colors ${
+        isDark ? 'bg-[#181A20] text-white border-white/10' : ''
+      }`}>
         {/* Top Dark Capsule Pill */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0D1829] text-white rounded-full text-[9px] font-black uppercase tracking-widest mb-4 shadow-sm">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0D1829] text-white rounded-full text-[9px] font-black uppercase tracking-widest mb-4 shadow-sm border border-white/10">
           <span>VEHICLE OBSERVATIONS · ALERTS</span>
         </div>
 
         {/* Header */}
         <div className="mb-4">
-          <h1 className="text-2xl font-black font-display text-gray-950">
+          <h1 className={`text-2xl font-black font-display ${isDark ? 'text-white' : 'text-gray-950'}`}>
             Alerts & Observations
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className={`text-xs mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
             Observations reported by road users for your registered vehicles.
           </p>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-2xl mb-4">
+        <div className={`flex items-center gap-1 p-1 rounded-2xl mb-4 border ${
+          isDark ? 'bg-[#121317] border-white/10' : 'bg-gray-100 border-gray-200/60'
+        }`}>
           <button
             onClick={() => setFilter('all')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               filter === 'all'
-                ? 'bg-white text-gray-950 shadow-xs'
-                : 'text-gray-500 hover:text-gray-900'
+                ? (isDark ? 'bg-[#282B34] text-white shadow-xs border border-white/15' : 'bg-white text-gray-950 shadow-xs')
+                : (isDark ? 'text-white/60 hover:text-white' : 'text-gray-500 hover:text-gray-900')
             }`}
           >
             All ({alerts.length})
           </button>
           <button
             onClick={() => setFilter('unread')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               filter === 'unread'
-                ? 'bg-white text-gray-950 shadow-xs'
-                : 'text-gray-500 hover:text-gray-900'
+                ? (isDark ? 'bg-[#282B34] text-white shadow-xs border border-white/15' : 'bg-white text-gray-950 shadow-xs')
+                : (isDark ? 'text-white/60 hover:text-white' : 'text-gray-500 hover:text-gray-900')
             }`}
           >
             Unread ({alerts.filter((a) => a.status === 'received' || a.status === 'needs_review').length})
           </button>
           <button
             onClick={() => setFilter('read')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               filter === 'read'
-                ? 'bg-white text-gray-950 shadow-xs'
-                : 'text-gray-500 hover:text-gray-900'
+                ? (isDark ? 'bg-[#282B34] text-white shadow-xs border border-white/15' : 'bg-white text-gray-950 shadow-xs')
+                : (isDark ? 'text-white/60 hover:text-white' : 'text-gray-500 hover:text-gray-900')
             }`}
           >
             Read ({alerts.filter((a) => a.status === 'resolved' || a.status === 'dismissed').length})
@@ -113,12 +119,14 @@ export function AlertsScreen() {
         </div>
 
         {filteredAlerts.length === 0 ? (
-          <div className="bg-gray-50/80 rounded-2xl p-8 text-center border border-gray-200/80 shadow-xs mt-2">
+          <div className={`rounded-2xl p-8 text-center border shadow-xs mt-2 ${
+            isDark ? 'bg-[#14161B] border-white/10 text-white' : 'bg-gray-50/80 border-gray-200/80 text-gray-950'
+          }`}>
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <h2 className="text-base font-bold text-gray-950 font-display">
+            <h2 className={`text-base font-bold font-display ${isDark ? 'text-white' : 'text-gray-950'}`}>
               No alerts found
             </h2>
-            <p className="text-xs text-gray-600 font-medium mt-1 max-w-xs mx-auto">
+            <p className={`text-xs font-medium mt-1 max-w-xs mx-auto ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
               Everything is clear. When road users submit observations for your vehicles, they will appear here.
             </p>
           </div>
@@ -130,12 +138,12 @@ export function AlertsScreen() {
                 switch (cat) {
                   case 'vehicle_condition':
                     return {
-                      bg: 'bg-red-100 text-[#941329] border border-red-200',
+                      bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-100 text-[#941329] border border-red-200',
                       icon: <Car className="w-5 h-5 stroke-[2.2]" />,
                     };
                   case 'driver_behaviour':
                     return {
-                      bg: 'bg-blue-100 text-[#1e40af] border border-blue-200',
+                      bg: isDark ? 'bg-blue-950/40 text-blue-300 border border-blue-800/40' : 'bg-blue-100 text-[#1e40af] border border-blue-200',
                       icon: (
                         <svg
                           className="w-5 h-5"
@@ -156,7 +164,7 @@ export function AlertsScreen() {
                     };
                   case 'road_violation':
                     return {
-                      bg: 'bg-amber-100 text-[#b45309] border border-amber-200',
+                      bg: isDark ? 'bg-amber-950/40 text-amber-300 border border-amber-800/40' : 'bg-amber-100 text-[#b45309] border border-amber-200',
                       icon: (
                         <svg
                           className="w-5 h-5"
@@ -175,12 +183,12 @@ export function AlertsScreen() {
                     };
                   case 'emergency':
                     return {
-                      bg: 'bg-red-100 text-[#dc2626] border border-red-200',
+                      bg: isDark ? 'bg-red-950/50 text-red-300 border border-red-800/50' : 'bg-red-100 text-[#dc2626] border border-red-200',
                       icon: <Siren className="w-5 h-5 stroke-[2.2]" />,
                     };
                   default:
                     return {
-                      bg: 'bg-red-100 text-[#941329] border border-red-200',
+                      bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-100 text-[#941329] border border-red-200',
                       icon: <Car className="w-5 h-5 stroke-[2.2]" />,
                     };
                 }
@@ -195,7 +203,11 @@ export function AlertsScreen() {
                     setActionType(null);
                     setActionNote('');
                   }}
-                  className="w-full bg-white hover:bg-gray-50/90 text-gray-950 p-4 rounded-2xl shadow-md border border-gray-200/90 flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group"
+                  className={`w-full p-4 rounded-2xl shadow-md border flex flex-col gap-3 text-left transition-all active:scale-[0.99] cursor-pointer group ${
+                    isDark
+                      ? 'bg-[#14161B] hover:bg-[#1B1D24] text-white border-white/10'
+                      : 'bg-white hover:bg-gray-50/90 text-gray-950 border-gray-200/90'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3 min-w-0">
@@ -204,7 +216,9 @@ export function AlertsScreen() {
                       </div>
 
                       <div className="min-w-0">
-                        <h2 className="text-sm font-black font-display text-gray-950 group-hover:text-[#941329] truncate leading-tight">
+                        <h2 className={`text-sm font-black font-display truncate leading-tight ${
+                          isDark ? 'text-white group-hover:text-rose-400' : 'text-gray-950 group-hover:text-[#941329]'
+                        }`}>
                           {alert.issueTitle}
                         </h2>
                         <div className="flex items-center gap-2 mt-1.5">
@@ -214,7 +228,7 @@ export function AlertsScreen() {
                               plateText={alert.plateDisplay}
                             />
                           </div>
-                          <span className="text-[11px] font-bold text-gray-600">
+                          <span className={`text-[11px] font-bold ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
                             {getRelativeTime(alert.createdAt)}
                           </span>
                         </div>
@@ -223,17 +237,21 @@ export function AlertsScreen() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {alert.status === 'needs_review' && (
-                        <span className="text-[10px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-xs">
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border ${
+                          isDark ? 'text-amber-300 bg-amber-950/60 border-amber-800/50' : 'text-amber-900 bg-amber-100 border-amber-300'
+                        }`}>
                           Review
                         </span>
                       )}
                       {alert.status === 'received' && (
-                        <span className="text-[10px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs">
+                        <span className="text-[10px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs border border-red-500/30">
                           Unread
                         </span>
                       )}
                       {alert.status === 'resolved' && (
-                        <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full shadow-xs">
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs border ${
+                          isDark ? 'text-emerald-300 bg-emerald-950/60 border-emerald-800/50' : 'text-emerald-800 bg-emerald-100 border-emerald-300'
+                        }`}>
                           Resolved
                         </span>
                       )}
@@ -244,7 +262,11 @@ export function AlertsScreen() {
                           setSelectedAlert(alert);
                           setActionType('resolve');
                         }}
-                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] flex items-center justify-center transition-colors cursor-pointer border border-gray-200"
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer border ${
+                          isDark
+                            ? 'bg-[#22242B] hover:bg-rose-950/40 text-white/60 hover:text-rose-400 border-white/10'
+                            : 'bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] border-gray-200'
+                        }`}
                         title="Dismiss alert"
                         aria-label="Dismiss"
                       >
@@ -254,13 +276,19 @@ export function AlertsScreen() {
                   </div>
 
                   {alert.customNote && (
-                    <p className="text-xs font-semibold text-gray-800 bg-rose-50/60 border border-rose-100/90 px-3 py-2 rounded-xl italic">
+                    <p className={`text-xs font-semibold px-3 py-2 rounded-xl italic border ${
+                      isDark
+                        ? 'bg-rose-950/30 text-rose-200 border-rose-900/40'
+                        : 'bg-rose-50/60 text-gray-800 border-rose-100/90'
+                    }`}>
                       "{alert.customNote}"
                     </p>
                   )}
 
                   {photo && (
-                    <div className="relative rounded-xl overflow-hidden border border-gray-200/90 bg-gray-900/5 group/photo w-full mt-1">
+                    <div className={`relative rounded-xl overflow-hidden border group/photo w-full mt-1 ${
+                      isDark ? 'border-white/10 bg-black/40' : 'border-gray-200/90 bg-gray-900/5'
+                    }`}>
                       <img
                         src={photo}
                         alt="Observation attachment preview"
@@ -280,11 +308,15 @@ export function AlertsScreen() {
 
       {/* FULL ALERT DETAIL MODAL */}
       {selectedAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className={`rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-[#181A20] text-white border-white/15' : 'bg-white text-gray-950 border-gray-200'
+          }`}>
             <button
               onClick={() => setSelectedAlert(null)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full"
+              className={`absolute top-4 right-4 p-2 rounded-full cursor-pointer transition-colors ${
+                isDark ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
@@ -297,28 +329,32 @@ export function AlertsScreen() {
                     plateText={selectedAlert.plateDisplay}
                   />
                 </div>
-                <div className="font-mono font-black text-xs text-gray-900 mt-1">
+                <div className={`font-mono font-black text-xs mt-1 ${isDark ? 'text-white/90' : 'text-gray-900'}`}>
                   {selectedAlert.plateDisplay}
                 </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium">
+              <span className={`text-xs font-medium ${isDark ? 'text-white/50' : 'text-gray-400'}`}>
                 {getRelativeTime(selectedAlert.createdAt)}
               </span>
             </div>
 
-            <h3 className="text-xl font-black font-display text-gray-950">
+            <h3 className={`text-xl font-black font-display ${isDark ? 'text-white' : 'text-gray-950'}`}>
               {selectedAlert.issueTitle}
             </h3>
 
-            {/* Mandatory Neutral Language Banner (Rule 6) */}
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200/70 rounded-2xl text-xs text-amber-900 leading-relaxed">
+            {/* Neutral Language Banner */}
+            <div className={`mt-3 p-3 rounded-2xl text-xs leading-relaxed border ${
+              isDark ? 'bg-amber-950/40 border-amber-900/50 text-amber-200' : 'bg-amber-50 border-amber-200/70 text-amber-900'
+            }`}>
               <strong className="block mb-0.5 font-bold">Observation notice:</strong>
               "A road user reported a possible observation. Please check when safe."
             </div>
 
             {selectedAlert.customNote && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-2xl text-xs text-gray-700">
-                <span className="font-semibold text-gray-900 block mb-0.5">Note:</span>
+              <div className={`mt-3 p-3 rounded-2xl text-xs border ${
+                isDark ? 'bg-[#1F2128] border-white/10 text-white/90' : 'bg-gray-50 border-gray-200/80 text-gray-700'
+              }`}>
+                <span className={`font-semibold block mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Note:</span>
                 "{selectedAlert.customNote}"
               </div>
             )}
@@ -327,8 +363,10 @@ export function AlertsScreen() {
               const modalPhoto = selectedAlert.photoUrl || (selectedAlert as any).photo_url;
               if (!modalPhoto) return null;
               return (
-                <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200/90 bg-gray-900/5 shadow-xs">
-                  <div className="px-3 py-1.5 bg-gray-900 text-white text-[10px] font-bold tracking-wider uppercase flex items-center justify-between">
+                <div className={`mt-3 rounded-2xl overflow-hidden border shadow-xs ${
+                  isDark ? 'border-white/10 bg-black/40' : 'border-gray-200/90 bg-gray-900/5'
+                }`}>
+                  <div className="px-3 py-1.5 bg-gray-900 text-white text-[10px] font-bold tracking-wider uppercase flex items-center justify-between border-b border-white/10">
                     <span className="flex items-center gap-1.5">
                       <Camera className="w-3.5 h-3.5 text-rose-400" /> Reporter Attached Photo
                     </span>
@@ -354,18 +392,22 @@ export function AlertsScreen() {
               );
             })()}
 
-            {/* Recorded Delivery Status (Rule 10) */}
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-2xl text-xs text-blue-900 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            {/* Recorded Delivery Status */}
+            <div className={`mt-3 p-3 rounded-2xl text-xs flex items-start gap-2 border ${
+              isDark ? 'bg-blue-950/40 border-blue-900/50 text-blue-200' : 'bg-blue-50 border-blue-100 text-blue-900'
+            }`}>
+              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold block">Delivery recorded:</span>
                 Delivered in-app to registered vehicle drivers.
               </div>
             </div>
 
-            {/* Privacy rule notice (Rule 8) */}
-            <div className="mt-2 p-3 bg-gray-50 rounded-2xl text-[11px] text-gray-500 flex items-start gap-2">
-              <EyeOff className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+            {/* Privacy rule notice */}
+            <div className={`mt-2 p-3 rounded-2xl text-[11px] flex items-start gap-2 border ${
+              isDark ? 'bg-[#1F2128] border-white/10 text-white/60' : 'bg-gray-50 border-gray-200/80 text-gray-500'
+            }`}>
+              <EyeOff className={`w-4 h-4 shrink-0 mt-0.5 ${isDark ? 'text-white/40' : 'text-gray-400'}`} />
               <span>
                 Reporter identity is hidden from you. Restricted security records are kept by Driver Ping to protect against abuse.
               </span>
@@ -373,25 +415,29 @@ export function AlertsScreen() {
 
             {/* Existing status notes if resolved/disputed */}
             {selectedAlert.recipientActionNote && (
-              <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-100 rounded-2xl text-xs text-emerald-900">
+              <div className={`mt-3 p-2.5 rounded-2xl text-xs border ${
+                isDark ? 'bg-emerald-950/40 border-emerald-900/50 text-emerald-200' : 'bg-emerald-50 border-emerald-100 text-emerald-900'
+              }`}>
                 <span className="font-bold">Your note: </span>
                 {selectedAlert.recipientActionNote}
               </div>
             )}
             {selectedAlert.disputeReason && (
-              <div className="mt-3 p-2.5 bg-purple-50 border border-purple-100 rounded-2xl text-xs text-purple-900">
+              <div className={`mt-3 p-2.5 rounded-2xl text-xs border ${
+                isDark ? 'bg-purple-950/40 border-purple-900/50 text-purple-200' : 'bg-purple-50 border-purple-100 text-purple-900'
+              }`}>
                 <span className="font-bold">Dispute filed: </span>
                 {selectedAlert.disputeReason}
               </div>
             )}
 
-            {/* Action buttons (Rule 6: resolve, dismiss, dispute, flag abuse) */}
+            {/* Action buttons */}
             {!actionType ? (
               <div className="mt-5 space-y-2">
                 <button
                   onClick={() => handleAction('resolve')}
                   disabled={isSubmitting}
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-xs flex items-center justify-center gap-2 transition-transform active:scale-95"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-xs flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Mark as Read</span>
@@ -400,14 +446,22 @@ export function AlertsScreen() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setActionType('dispute')}
-                    className="py-2.5 px-3 border border-gray-200 text-gray-700 font-semibold text-xs rounded-2xl hover:bg-gray-50 flex items-center justify-center gap-1.5 transition-colors"
+                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                      isDark
+                        ? 'border-white/15 text-white/80 hover:bg-[#282B34]'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
                   >
                     <FileQuestion className="w-3.5 h-3.5" />
                     <span>Dispute</span>
                   </button>
                   <button
                     onClick={() => setActionType('flag_abuse')}
-                    className="py-2.5 px-3 border border-red-200 text-red-600 font-semibold text-xs rounded-2xl hover:bg-red-50 flex items-center justify-center gap-1.5 transition-colors"
+                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                      isDark
+                        ? 'border-rose-900/50 text-rose-400 hover:bg-rose-950/40'
+                        : 'border-red-200 text-red-600 hover:bg-red-50'
+                    }`}
                   >
                     <Flag className="w-3.5 h-3.5" />
                     <span>Flag Abuse</span>
@@ -417,14 +471,16 @@ export function AlertsScreen() {
                 <button
                   onClick={() => handleAction('dismiss')}
                   disabled={isSubmitting}
-                  className="w-full py-2.5 text-xs text-gray-400 hover:text-gray-700 font-medium"
+                  className={`w-full py-2.5 text-xs font-medium cursor-pointer transition-colors ${
+                    isDark ? 'text-white/50 hover:text-white' : 'text-gray-400 hover:text-gray-700'
+                  }`}
                 >
                   Dismiss / Acknowledge
                 </button>
               </div>
             ) : (
-              <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
-                <div className="text-xs font-semibold text-gray-900">
+              <div className={`mt-4 pt-3 border-t space-y-3 ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
+                <div className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {actionType === 'dispute'
                     ? 'Reason for disputing this observation:'
                     : 'Explain why you are flagging this report as abuse/harassment:'}
@@ -438,21 +494,27 @@ export function AlertsScreen() {
                       ? 'e.g. Observation is factually incorrect...'
                       : 'e.g. Repeated targeting or malicious falsehood...'
                   }
-                  className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none"
+                  className={`w-full p-2.5 text-xs rounded-2xl focus:outline-none border transition-colors ${
+                    isDark
+                      ? 'bg-[#121317] border-white/15 text-white placeholder:text-white/40 focus:border-white/40'
+                      : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-[#941329]'
+                  }`}
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => setActionType(null)}
-                    className="w-1/3 py-2 text-xs border border-gray-200 rounded-2xl text-gray-600"
+                    className={`w-1/3 py-2 text-xs border rounded-2xl cursor-pointer ${
+                      isDark ? 'border-white/15 text-white/70 hover:bg-white/10' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleAction(actionType)}
                     disabled={isSubmitting || !actionNote.trim()}
-                    className={`w-2/3 py-2 text-xs font-semibold text-white rounded-2xl ${
-                      actionType === 'dispute' ? 'bg-purple-600' : 'bg-red-600'
-                    } disabled:opacity-40`}
+                    className={`w-2/3 py-2 text-xs font-semibold text-white rounded-2xl cursor-pointer ${
+                      actionType === 'dispute' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     Submit {actionType === 'dispute' ? 'Dispute' : 'Abuse Report'}
                   </button>

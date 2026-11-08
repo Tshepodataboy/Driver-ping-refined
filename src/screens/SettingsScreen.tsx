@@ -30,6 +30,7 @@ import {
   Database,
   Sun,
   Moon,
+  Sparkles,
 } from 'lucide-react';
 
 export function SettingsScreen() {
@@ -54,10 +55,22 @@ export function SettingsScreen() {
     driver: string;
   } | null>(null);
 
+  const [aiStatus, setAiStatus] = useState<{
+    configured: boolean;
+    project?: string;
+    projectNumber?: string;
+    model?: string;
+  } | null>(null);
+
   useEffect(() => {
     fetch('/api/db-status')
       .then((res) => res.json())
       .then((data) => setDbStatus(data.database))
+      .catch(() => {});
+
+    fetch('/api/ai/status')
+      .then((res) => res.json())
+      .then((data) => setAiStatus(data))
       .catch(() => {});
   }, []);
 
@@ -242,7 +255,11 @@ export function SettingsScreen() {
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
-            onClick={() => setTheme('dark')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setTheme('dark');
+            }}
             className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
               theme === 'dark'
                 ? 'bg-[#121316] border-[#B81D39] text-white shadow-lg ring-2 ring-[#B81D39]/30'
@@ -265,7 +282,11 @@ export function SettingsScreen() {
 
           <button
             type="button"
-            onClick={() => setTheme('light')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setTheme('light');
+            }}
             className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
               theme === 'light'
                 ? 'bg-white border-[#B81D39] text-gray-950 shadow-lg ring-2 ring-[#B81D39]/30'
@@ -799,6 +820,21 @@ export function SettingsScreen() {
             <span className="text-gray-500 font-medium">Reporter Privacy:</span>
             <span className="font-bold text-purple-700">Strict Identity Masking</span>
           </div>
+          <div className="flex items-center justify-between pt-1 border-t border-gray-200/70">
+            <span className="text-gray-500 font-medium flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Gemini AI Engine:</span>
+            </span>
+            <span className="font-bold text-purple-700">
+              {aiStatus?.configured ? `Connected (${aiStatus.model || 'gemini-3.8-flash'})` : 'Ready to Connect'}
+            </span>
+          </div>
+          {aiStatus?.projectNumber && (
+            <div className="flex items-center justify-between text-[11px] text-gray-500">
+              <span>Google Cloud Project:</span>
+              <span className="font-mono font-semibold text-gray-700">{aiStatus.projectNumber}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

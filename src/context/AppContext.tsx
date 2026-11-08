@@ -30,6 +30,7 @@ interface AppContextType {
   currentUserId: string;
   isDemoAccount: boolean;
   activeTab: TabKey;
+  previousTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
   reportCategoryPreset: ReportCategory | null;
   setReportCategoryPreset: (cat: ReportCategory | null) => void;
@@ -130,7 +131,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [user, setUser] = useState<User | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('usr_alex_001');
-  const [activeTab, setActiveTab] = useState<TabKey>('home');
+  
+  // Track previousTab and restore activeTab from sessionStorage so navigation is never lost
+  const [previousTab, setPreviousTab] = useState<TabKey>('home');
+  const [activeTab, setActiveTabState] = useState<TabKey>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('driver_ping_active_tab') as TabKey;
+      if (saved && ['home', 'vehicles', 'report', 'alerts', 'profile', 'admin', 'settings'].includes(saved)) {
+        return saved;
+      }
+    }
+    return 'home';
+  });
+
+  const setActiveTab = (tab: TabKey) => {
+    setActiveTabState((prev) => {
+      setPreviousTab(prev);
+      return tab;
+    });
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('driver_ping_active_tab', tab);
+    }
+  };
+
   const [reportCategoryPreset, setReportCategoryPreset] = useState<ReportCategory | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -139,13 +162,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState<boolean>(false);
 
-  // Theme management: default to dark, saved in localStorage
+  // Theme management: default to light, saved in localStorage
   const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('driver_ping_theme');
       if (saved === 'light' || saved === 'dark') return saved;
     }
-    return 'dark';
+    return 'light';
   });
 
   const setTheme = (newTheme: 'dark' | 'light') => {
@@ -153,13 +176,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('driver_ping_theme', newTheme);
     }
+    // Update document element class synchronously
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      if (newTheme === 'dark') {
+        root.classList.add('dark');
+        root.classList.remove('light');
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      }
+    }
   };
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  // Sync document root class with active theme
+  // Sync document root class with active theme on initial mount and state changes
   useEffect(() => {
     if (typeof document !== 'undefined') {
       const root = document.documentElement;
@@ -784,6 +818,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentUserId,
         isDemoAccount,
         activeTab,
+        previousTab,
         setActiveTab,
         reportCategoryPreset,
         setReportCategoryPreset,

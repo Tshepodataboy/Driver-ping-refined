@@ -48,6 +48,8 @@ export function HomeScreen() {
     theme,
   } = useApp();
 
+  const isDark = theme === 'dark';
+
   // Emergency In-Call State
   const [isInEmergencyCall, setIsInEmergencyCall] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
@@ -214,6 +216,10 @@ export function HomeScreen() {
 
   const handleReportButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.focus();
+    if (isReportOpen) {
+      setIsReportOpen(false);
+      return;
+    }
     setIsFlashing(true);
     setIsReportOpen(true);
     setTimeout(() => {
@@ -467,10 +473,12 @@ export function HomeScreen() {
 
           if (displayAlerts.length === 0) {
             return (
-              <div className="glass-card rounded-[26px] p-5 text-center border border-white/60">
-                <CheckCircle2 className="w-7 h-7 text-emerald-600 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-gray-900">All clear</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">
+              <div className={`rounded-[26px] p-5 text-center border transition-colors ${
+                isDark ? 'bg-[#14161B] border-white/10 text-white' : 'glass-card text-gray-900 border-white/60'
+              }`}>
+                <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
+                <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>All clear</p>
+                <p className={`text-[10px] mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
                   No observations or alerts reported for your registered vehicles.
                 </p>
               </div>
@@ -484,12 +492,12 @@ export function HomeScreen() {
                   switch (cat) {
                     case 'vehicle_condition':
                       return {
-                        bg: 'bg-red-50 text-[#941329]',
+                        bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-50 text-[#941329]',
                         icon: <Car className="w-4 h-4 stroke-[2.2]" />,
                       };
                     case 'driver_behaviour':
                       return {
-                        bg: 'bg-blue-50 text-[#1e40af]',
+                        bg: isDark ? 'bg-blue-950/40 text-blue-300 border border-blue-800/40' : 'bg-blue-50 text-[#1e40af]',
                         icon: (
                           <svg
                             className="w-4 h-4"
@@ -510,7 +518,7 @@ export function HomeScreen() {
                       };
                     case 'road_violation':
                       return {
-                        bg: 'bg-amber-50 text-[#d97706]',
+                        bg: isDark ? 'bg-amber-950/40 text-amber-300 border border-amber-800/40' : 'bg-amber-50 text-[#d97706]',
                         icon: (
                           <svg
                             className="w-4 h-4"
@@ -529,12 +537,12 @@ export function HomeScreen() {
                       };
                     case 'emergency':
                       return {
-                        bg: 'bg-red-50 text-[#dc2626]',
+                        bg: isDark ? 'bg-red-950/50 text-red-300 border border-red-800/50' : 'bg-red-50 text-[#dc2626]',
                         icon: <Siren className="w-4 h-4 stroke-[2.2]" />,
                       };
                     default:
                       return {
-                        bg: 'bg-red-50 text-[#941329]',
+                        bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-50 text-[#941329]',
                         icon: <Car className="w-4 h-4 stroke-[2.2]" />,
                       };
                   }
@@ -545,15 +553,23 @@ export function HomeScreen() {
                   <div
                     key={alert.id}
                     onClick={() => handleAlertClick(alert)}
-                    className="w-full glass-card p-3.5 rounded-2xl shadow-md border border-gray-200/50 flex flex-col gap-2 text-left transition-all active:scale-[0.99] cursor-pointer group"
+                    className={`w-full p-3.5 rounded-2xl shadow-md border flex flex-col gap-2 text-left transition-all active:scale-[0.99] cursor-pointer group ${
+                      isDark
+                        ? 'bg-[#14161B] hover:bg-[#1C1E24] text-white border-white/10'
+                        : 'glass-card hover:bg-gray-50/90 text-gray-950 border-gray-200/50'
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-3 w-full">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-full ${badge.bg} flex items-center justify-center shrink-0 shadow-xs border border-gray-100`}>
+                        <div className={`w-9 h-9 rounded-full ${badge.bg} flex items-center justify-center shrink-0 shadow-xs border ${
+                          isDark ? 'border-white/10' : 'border-gray-100'
+                        }`}>
                           {badge.icon}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-xs font-black font-display text-gray-950 group-hover:text-[#941329] truncate">
+                          <h3 className={`text-xs font-black font-display truncate ${
+                            isDark ? 'text-white group-hover:text-rose-400' : 'text-gray-950 group-hover:text-[#941329]'
+                          }`}>
                             {alert.issueTitle}
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
@@ -563,7 +579,7 @@ export function HomeScreen() {
                                 plateText={alert.plateDisplay}
                               />
                             </div>
-                            <span className="text-[10px] text-gray-600 font-bold">
+                            <span className={`text-[10px] font-bold ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
                               {getRelativeTime(alert.createdAt)}
                             </span>
                           </div>
@@ -572,17 +588,21 @@ export function HomeScreen() {
 
                       <div className="flex items-center gap-2 shrink-0">
                         {alert.status === 'received' && (
-                          <span className="text-[9px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs">
+                          <span className="text-[9px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs border border-red-500/30">
                             New
                           </span>
                         )}
                         {alert.status === 'needs_review' && (
-                          <span className="text-[9px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full shadow-xs">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border ${
+                            isDark ? 'text-amber-300 bg-amber-950/60 border-amber-800/50' : 'text-amber-900 bg-amber-100 border-amber-300'
+                          }`}>
                             Review
                           </span>
                         )}
                         {alert.status === 'resolved' && (
-                          <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full shadow-xs">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border ${
+                            isDark ? 'text-emerald-300 bg-emerald-950/60 border-emerald-800/50' : 'text-emerald-800 bg-emerald-100 border-emerald-300'
+                          }`}>
                             Resolved
                           </span>
                         )}
@@ -592,7 +612,11 @@ export function HomeScreen() {
                             e.stopPropagation();
                             takeAlertAction(alert.id, 'resolve', 'Dismissed');
                           }}
-                          className="w-6 h-6 rounded-full bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] flex items-center justify-center transition-colors cursor-pointer border border-gray-200"
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors cursor-pointer border ${
+                            isDark
+                              ? 'bg-[#22242B] hover:bg-rose-950/40 text-white/60 hover:text-rose-400 border-white/10'
+                              : 'bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] border-gray-200'
+                          }`}
                           title="Dismiss alert"
                           aria-label="Dismiss"
                         >
@@ -602,7 +626,11 @@ export function HomeScreen() {
                     </div>
 
                     {alert.customNote && (
-                      <p className="text-[11px] font-semibold text-gray-800 bg-rose-50/60 border border-rose-100/90 px-2.5 py-1 rounded-xl truncate italic">
+                      <p className={`text-[11px] font-semibold px-2.5 py-1 rounded-xl truncate italic border ${
+                        isDark
+                          ? 'bg-rose-950/30 text-rose-200 border-rose-900/40'
+                          : 'bg-rose-50/60 text-gray-800 border-rose-100/90'
+                      }`}>
                         "{alert.customNote}"
                       </p>
                     )}
@@ -617,10 +645,14 @@ export function HomeScreen() {
       {/* Selected Alert Quick-Action Modal */}
       {selectedAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-          <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className={`rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-[#181A20] text-white border-white/15' : 'bg-white text-gray-950 border-gray-200'
+          }`}>
             <button
               onClick={() => setSelectedAlert(null)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full"
+              className={`absolute top-4 right-4 p-2 rounded-full cursor-pointer transition-colors ${
+                isDark ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              }`}
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -634,34 +666,40 @@ export function HomeScreen() {
                     plateText={selectedAlert.plateDisplay}
                   />
                 </div>
-                <div className="font-mono font-black text-xs text-gray-900 mt-1">
+                <div className={`font-mono font-black text-xs mt-1 ${isDark ? 'text-white/90' : 'text-gray-900'}`}>
                   {selectedAlert.plateDisplay}
                 </div>
               </div>
-              <span className="text-xs text-gray-400 font-medium">
+              <span className={`text-xs font-medium ${isDark ? 'text-white/50' : 'text-gray-400'}`}>
                 {getRelativeTime(selectedAlert.createdAt)}
               </span>
             </div>
 
-            <h3 className="text-xl font-black font-display text-gray-950 mt-1">
+            <h3 className={`text-xl font-black font-display mt-1 ${isDark ? 'text-white' : 'text-gray-950'}`}>
               {selectedAlert.issueTitle}
             </h3>
 
             {/* Mandatory Neutral Language Banner */}
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200/60 rounded-2xl text-xs text-amber-900 font-medium leading-relaxed">
+            <div className={`mt-3 p-3 rounded-2xl text-xs font-medium leading-relaxed border ${
+              isDark ? 'bg-amber-950/40 border-amber-900/50 text-amber-200' : 'bg-amber-50 border-amber-200/60 text-amber-900'
+            }`}>
               "A road user reported a possible observation. Please check when safe."
             </div>
 
             {selectedAlert.customNote && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-2xl text-xs text-gray-700">
-                <span className="font-semibold text-gray-900 block mb-0.5">Observation note:</span>
+              <div className={`mt-3 p-3 rounded-2xl text-xs border ${
+                isDark ? 'bg-[#1F2128] border-white/10 text-white/90' : 'bg-gray-50 border-gray-200/80 text-gray-700'
+              }`}>
+                <span className={`font-semibold block mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Observation note:</span>
                 "{selectedAlert.customNote}"
               </div>
             )}
 
             {/* Recorded Delivery Confirmation */}
-            <div className="mt-3 p-2.5 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-2 text-xs text-blue-900">
-              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className={`mt-3 p-2.5 rounded-2xl flex items-center gap-2 text-xs border ${
+              isDark ? 'bg-blue-950/40 border-blue-900/50 text-blue-200' : 'bg-blue-50 border-blue-100 text-blue-900'
+            }`}>
+              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
               <span>System confirmation: Recorded delivered to your app feed.</span>
             </div>
 
@@ -671,7 +709,7 @@ export function HomeScreen() {
                 <button
                   onClick={() => submitAlertAction('resolve')}
                   disabled={isSubmittingAction}
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-sm flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Mark as Read</span>
@@ -680,13 +718,21 @@ export function HomeScreen() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setActionType('dispute')}
-                    className="py-2.5 px-3 border border-gray-200 text-gray-700 font-semibold text-xs rounded-2xl hover:bg-gray-50"
+                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl transition-colors cursor-pointer ${
+                      isDark
+                        ? 'border-white/15 text-white/80 hover:bg-[#282B34]'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
                   >
                     Dispute Note
                   </button>
                   <button
                     onClick={() => setActionType('flag_abuse')}
-                    className="py-2.5 px-3 border border-red-200 text-red-600 font-semibold text-xs rounded-2xl hover:bg-red-50"
+                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl transition-colors cursor-pointer ${
+                      isDark
+                        ? 'border-rose-900/50 text-rose-400 hover:bg-rose-950/40'
+                        : 'border-red-200 text-red-600 hover:bg-red-50'
+                    }`}
                   >
                     Flag as Abuse
                   </button>
@@ -695,14 +741,16 @@ export function HomeScreen() {
                 <button
                   onClick={() => submitAlertAction('dismiss')}
                   disabled={isSubmittingAction}
-                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-700"
+                  className={`w-full py-2 text-xs cursor-pointer transition-colors ${
+                    isDark ? 'text-white/50 hover:text-white' : 'text-gray-400 hover:text-gray-700'
+                  }`}
                 >
                   Dismiss / Acknowledge
                 </button>
               </div>
             ) : (
-              <div className="mt-4 pt-2 border-t border-gray-100 space-y-3">
-                <div className="text-xs font-semibold text-gray-800">
+              <div className={`mt-4 pt-2 border-t space-y-3 ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
+                <div className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
                   {actionType === 'dispute'
                     ? 'Why are you disputing this report?'
                     : 'Report this alert as harassment or abuse:'}
@@ -712,21 +760,27 @@ export function HomeScreen() {
                   value={actionNote}
                   onChange={(e) => setActionNote(e.target.value)}
                   placeholder="Provide details..."
-                  className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none"
+                  className={`w-full p-2.5 text-xs rounded-2xl focus:outline-none border transition-colors ${
+                    isDark
+                      ? 'bg-[#121317] border-white/15 text-white placeholder:text-white/40 focus:border-white/40'
+                      : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-[#941329]'
+                  }`}
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => setActionType(null)}
-                    className="w-1/3 py-2 text-xs border border-gray-200 rounded-2xl text-gray-600"
+                    className={`w-1/3 py-2 text-xs border rounded-2xl cursor-pointer ${
+                      isDark ? 'border-white/15 text-white/70 hover:bg-white/10' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => submitAlertAction(actionType)}
                     disabled={isSubmittingAction || !actionNote.trim()}
-                    className={`w-2/3 py-2 text-xs font-bold text-white rounded-2xl ${
-                      actionType === 'dispute' ? 'bg-[#941329]' : 'bg-red-600'
-                    }`}
+                    className={`w-2/3 py-2 text-xs font-bold text-white rounded-2xl cursor-pointer ${
+                      actionType === 'dispute' ? 'bg-[#941329] hover:bg-[#7a0f21]' : 'bg-red-600 hover:bg-red-700'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     Submit {actionType === 'dispute' ? 'Dispute' : 'Abuse Report'}
                   </button>
@@ -1237,16 +1291,16 @@ export function HomeScreen() {
       {/* 6. FULL PAGE RSA LIVE MAP VIEW */}
       {showMapModal && (
         <div className={`fixed inset-0 pt-14 z-30 flex flex-col h-full w-full overflow-y-auto overflow-x-hidden no-scrollbar font-sans transition-colors ${
-          theme === 'dark' ? 'bg-[#090A0C] text-white' : 'bg-[#F4F1EA] text-gray-900'
+          isDark ? 'bg-[#090A0C] text-white' : 'bg-[#FAF8F6] text-gray-900'
         }`}>
           {/* Floating Back Button */}
           <button
             type="button"
             onClick={() => setShowMapModal(false)}
             className={`absolute top-4 left-4 z-30 p-2.5 rounded-full backdrop-blur-md shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center justify-center ${
-              theme === 'dark'
+              isDark
                 ? 'bg-[#16181D]/90 hover:bg-[#22252C] text-white border border-white/20'
-                : 'bg-white/90 hover:bg-white text-gray-950 border border-gray-300'
+                : 'bg-white hover:bg-gray-100 text-gray-950 border border-gray-200/90 shadow-md'
             }`}
             aria-label="Back to Home"
             title="Back to Home"
@@ -1256,11 +1310,11 @@ export function HomeScreen() {
 
           {/* Coming Soon Map Viewport Area */}
           <div className={`flex-1 w-full relative flex flex-col items-center justify-center p-6 text-center overflow-y-auto ${
-            theme === 'dark' ? 'bg-[#090A0C]' : 'bg-[#F4F1EA]'
+            isDark ? 'bg-[#090A0C]' : 'bg-[#FAF8F6]'
           }`}>
             {/* Background Grid & Aurora Mesh Glows */}
             <div className={`absolute inset-0 [background-size:24px_24px] pointer-events-none ${
-              theme === 'dark'
+              isDark
                 ? 'bg-[radial-gradient(#334155_1px,transparent_1px)] opacity-30'
                 : 'bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] opacity-50'
             }`} />
@@ -1270,67 +1324,99 @@ export function HomeScreen() {
             <div className="relative z-10 max-w-sm w-full mx-auto flex flex-col items-center my-auto py-4">
               {/* Animated Map Icon Badge */}
               <div className={`w-16 h-16 rounded-3xl shadow-2xl flex items-center justify-center mb-4 relative group ${
-                theme === 'dark'
+                isDark
                   ? 'bg-slate-900/90 border border-slate-700/80 text-rose-400'
-                  : 'bg-white border border-gray-200 text-[#941329]'
+                  : 'bg-white border border-gray-200 text-[#941329] shadow-md'
               }`}>
                 <MapPin className="w-8 h-8 stroke-[2.2] animate-bounce" />
                 <span className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 animate-pulse ${
-                  theme === 'dark' ? 'border-[#090A0C]' : 'border-white'
+                  isDark ? 'border-[#090A0C]' : 'border-white'
                 }`} />
               </div>
 
               {/* Coming Soon Tag */}
-              <span className="px-4 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 shadow-xs">
+              <span className={`px-4 py-1 rounded-full text-[11px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 shadow-xs border ${
+                isDark
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  : 'bg-rose-50 border-rose-200 text-[#941329]'
+              }`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
                 Coming Soon
               </span>
 
               {/* Title */}
-              <h2 className="text-2xl font-black font-display text-white tracking-tight mb-2">
+              <h2 className={`text-2xl font-black font-display tracking-tight mb-2 ${
+                isDark ? 'text-white' : 'text-gray-950'
+              }`}>
                 Live Interactive Map
               </h2>
 
-              <p className="text-xs text-slate-300 leading-relaxed font-medium mb-5">
+              <p className={`text-xs leading-relaxed font-medium mb-5 ${
+                isDark ? 'text-slate-300' : 'text-gray-600'
+              }`}>
                 With our upcoming live map feature, road users across South Africa can pin and report live road conditions in real-time:
               </p>
 
               {/* Feature Highlights Grid */}
               <div className="w-full space-y-2.5 text-left mb-6">
                 {/* 1. Potholes */}
-                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-start gap-3 backdrop-blur-md">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                  isDark
+                    ? 'bg-slate-900/80 border-slate-800 text-white'
+                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
+                }`}>
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
+                    isDark
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                      : 'bg-amber-50 border-amber-200 text-amber-600'
+                  }`}>
                     <AlertTriangle className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Potholes & Road Damage</h4>
-                    <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Potholes & Road Damage</h4>
+                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                       Mark dangerous potholes, road surface damage, and unlit hazards.
                     </p>
                   </div>
                 </div>
 
                 {/* 2. Accidents */}
-                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-start gap-3 backdrop-blur-md">
-                  <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                  isDark
+                    ? 'bg-slate-900/80 border-slate-800 text-white'
+                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
+                }`}>
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
+                    isDark
+                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                      : 'bg-red-50 border-red-200 text-[#941329]'
+                  }`}>
                     <Siren className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Accidents & Collisions</h4>
-                    <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Accidents & Collisions</h4>
+                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                       Pin live vehicle collisions for emergency responder dispatch and alert nearby drivers.
                     </p>
                   </div>
                 </div>
 
                 {/* 3. Traffic Jams */}
-                <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-start gap-3 backdrop-blur-md">
-                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                  isDark
+                    ? 'bg-slate-900/80 border-slate-800 text-white'
+                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
+                }`}>
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
+                    isDark
+                      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                      : 'bg-blue-50 border-blue-200 text-blue-600'
+                  }`}>
                     <Car className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Traffic Jams & Delays</h4>
-                    <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Traffic Jams & Delays</h4>
+                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                       Track real-time traffic bottlenecks, highway delays, and lane closures.
                     </p>
                   </div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext.js';
 import {
-  ArrowLeft,
   ChevronRight,
   SlidersHorizontal,
   Users,
@@ -122,24 +121,6 @@ export function ProfileScreen() {
   if (!user) {
     return (
       <div className="pb-28 pt-2 px-3 max-w-[420px] mx-auto select-none">
-        {/* Top Header */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('home')}
-            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white flex items-center justify-center border border-white/20 shadow-md backdrop-blur-md transition-all cursor-pointer"
-            aria-label="Back to Home"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-          </button>
-          <div className="text-center">
-            <h1 className="font-black font-display text-base tracking-tight text-white uppercase drop-shadow-sm">
-              Settings & Profile
-            </h1>
-          </div>
-          <div className="w-10" />
-        </div>
-
         {/* Guest Profile Card */}
         <div className="glass-card rounded-[32px] p-6 crimson-card-shadow text-center space-y-4">
           <div className="w-16 h-16 rounded-3xl bg-red-50 text-[#B81D39] mx-auto flex items-center justify-center shadow-inner">
@@ -165,24 +146,6 @@ export function ProfileScreen() {
 
   return (
     <div className="pb-28 pt-2 px-3 max-w-[420px] mx-auto select-none">
-      {/* 1. TOP APP BAR */}
-      <div className="flex items-center justify-between mb-3.5">
-        <button
-          type="button"
-          onClick={() => setActiveTab('home')}
-          className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white flex items-center justify-center border border-white/20 shadow-md backdrop-blur-md transition-all cursor-pointer"
-          aria-label="Back to Home"
-        >
-          <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
-        </button>
-        <div className="text-center">
-          <h1 className="font-black font-display text-base tracking-tight text-white uppercase drop-shadow-sm">
-            Settings
-          </h1>
-        </div>
-        <div className="w-10" />
-      </div>
-
       <div className="space-y-3">
         {/* 2. USER PROFILE IDENTITY CARD */}
         <button
@@ -223,8 +186,8 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
-                <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <SlidersHorizontal className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
                 General settings
@@ -242,8 +205,8 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
-                <Users className="w-4 h-4 stroke-[2]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <Users className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
                 My Contact
@@ -267,8 +230,8 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
-                <HelpCircle className="w-4 h-4 stroke-[2]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <HelpCircle className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
                 FAQ
@@ -286,8 +249,8 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
-                <Info className="w-4 h-4 stroke-[2]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <Info className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
                 Terms of service
@@ -305,8 +268,8 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-[#B81D39] flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
-                <Shield className="w-4 h-4 stroke-[2]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <Shield className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
                 User policy
