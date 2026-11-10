@@ -189,7 +189,7 @@ export function ReportScreen() {
   const scanPlateWithAi = async (imageDataUrl: string) => {
     if (!imageDataUrl) return;
     setIsScanningPlate(true);
-    setAiNotice('AI scanning vehicle photo: identifying province & plate number...');
+    setAiNotice(null);
     try {
       const res = await fetch('/api/ai/extract-plate', {
         method: 'POST',
