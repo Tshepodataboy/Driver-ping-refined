@@ -239,6 +239,25 @@ html:not(.dark) .pro-form-card h4,
   color: rgba(255, 255, 255, 0.35) !important;
 }
 
+/* Bottom-nav active tab: same crimson aurora material as the report button's holder card */
+.nav-aurora-active {
+  background-color: #4C0617 !important;
+  background-image:
+    radial-gradient(ellipse 130% 120% at 82% 8%, rgba(244, 63, 94, 0.78) 0%, transparent 68%),
+    radial-gradient(circle at 12% 100%, rgba(190, 18, 60, 0.72) 0%, transparent 62%),
+    radial-gradient(circle at 45% 30%, rgba(251, 113, 133, 0.4) 0%, transparent 50%),
+    linear-gradient(145deg, #7F0E28 0%, #58081A 50%, #35040F 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 10px 26px -8px rgba(25, 2, 7, 0.8),
+              0 3px 10px -3px rgba(0, 0, 0, 0.45),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.34) !important;
+}
+
+.nav-aurora-active:hover {
+  border-color: rgba(255, 255, 255, 0.36) !important;
+}
+
 /* Fluid Aurora Red Mesh Gradient Card (User rule: All red cards remain the same in both modes) */
 .report-aurora-card {
   position: relative !important;
