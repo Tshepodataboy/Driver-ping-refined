@@ -44,6 +44,15 @@ const PLATE_TYPE_OPTIONS = [
   { key: 'dealer', label: 'Dealer' },
 ] as const;
 
+// The app's province list uses short codes (L, ZN) while the AI reports the
+// canonical ones (LP, KZN). Map them so a scan selects the right province pill.
+function toAppProvinceCode(code: string): string {
+  const norm = normalizeProvinceCode(code);
+  if (norm === 'LP') return 'L';
+  if (norm === 'KZN') return 'ZN';
+  return norm;
+}
+
 export function ReportScreen() {
   const {
     user,
@@ -218,10 +227,11 @@ export function ReportScreen() {
         // Step 1: province mark and plate type are resolved before any digits are read.
         let resolvedProv = selectedProvinceCode || 'GP';
         if (provinceCode) {
-          resolvedProv = normalizeProvinceCode(provinceCode);
+          resolvedProv = toAppProvinceCode(provinceCode);
           setSelectedProvinceCode(resolvedProv);
         }
-        const resolvedProvName = provinceName || PROVINCE_NAMES[resolvedProv] || resolvedProv;
+        const resolvedProvName =
+          provinceName || PROVINCE_NAMES[normalizeProvinceCode(resolvedProv)] || resolvedProv;
 
         // Pick up the detected plate type in the plate type options.
         const matchedType = PLATE_TYPE_OPTIONS.find((option) => option.key === detectedPlateType);
@@ -316,8 +326,9 @@ export function ReportScreen() {
   }, [user]);
 
   const selectedProvince = useMemo(() => {
+    const code = selectedProvinceCode ? toAppProvinceCode(selectedProvinceCode) : 'GP';
     return (
-      SA_PROVINCES.find((p) => p.code === selectedProvinceCode) ||
+      SA_PROVINCES.find((p) => p.code === code) ||
       SA_PROVINCES.find((p) => p.code === 'GP') ||
       SA_PROVINCES[0]
     );
@@ -794,50 +805,6 @@ export function ReportScreen() {
                     <span className="font-medium text-[11px] leading-tight">{aiNotice}</span>
                   </div>
                 )}
-
-                {scanResult && (
-                  <div className={`rounded-xl border overflow-hidden text-[11px] ${
-                    isDark ? 'bg-[#1A1C21] border-white/10' : 'bg-white border-gray-200 shadow-2xs'
-                  }`}>
-                    <div className={`flex items-center justify-between px-3 py-1.5 border-b ${
-                      isDark ? 'border-white/10' : 'border-gray-200'
-                    }`}>
-                      <span className={`text-[9px] font-extrabold uppercase tracking-wider ${isDark ? 'text-white/70' : 'text-gray-700'}`}>
-                        Gemini plate read
-                      </span>
-                      {scanResult.confidence !== null && (
-                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                          {Math.round(scanResult.confidence * 100)}% confidence
-                        </span>
-                      )}
-                    </div>
-                    <div className="px-3 py-2 space-y-2">
-                      <div className="flex items-start gap-2">
-                        <span className="w-4 h-4 shrink-0 rounded-full bg-[#941329] text-white text-[9px] font-black flex items-center justify-center mt-0.5">1</span>
-                        <div className="min-w-0">
-                          <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
-                            Province & plate type
-                          </span>
-                          <span className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                            {scanResult.provinceName} ({scanResult.provinceCode === 'WC' ? 'CA' : scanResult.provinceCode})
-                            <span className={isDark ? 'text-white/60' : 'text-gray-600'}> · {scanResult.plateTypeLabel}</span>
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="w-4 h-4 shrink-0 rounded-full bg-[#941329] text-white text-[9px] font-black flex items-center justify-center mt-0.5">2</span>
-                        <div className="min-w-0">
-                          <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
-                            Unique registration number
-                          </span>
-                          <span className={`font-display font-black tracking-[0.08em] text-sm ${isDark ? 'text-white' : 'text-gray-950'}`}>
-                            {scanResult.registration || '—'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 relative z-10">
@@ -928,30 +895,29 @@ export function ReportScreen() {
               })}
             </div>
 
-            {/* Plate Type Options: auto-selected by the AI scan, adjustable here */}
-            <div className={`text-[9px] font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
-              Plate type
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none mb-3">
-              {PLATE_TYPE_OPTIONS.map((option) => {
-                const isSelected = plateType === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => setPlateType(option.key)}
-                    aria-pressed={isSelected}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer shrink-0 border ${
-                      isSelected
-                        ? (isDark ? 'bg-[#2A2E39] text-white border-white/40 ring-1 ring-white/20' : 'bg-[#941329] text-white border-[#941329] shadow-2xs')
-                        : (isDark ? 'bg-[#1E2027] hover:bg-[#282B34] text-white/70 border-white/10' : 'bg-white hover:bg-gray-100 text-gray-800 border-gray-200')
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Identified plate readout: province mark + unique registration */}
+            {plateNumber.trim().length >= 2 && (
+              <div
+                className={`mt-3 rounded-xl border px-3 py-2 flex items-center justify-between gap-2 ${
+                  isDark ? 'bg-[#1E2027] border-white/10' : 'bg-white border-gray-200 shadow-2xs'
+                }`}
+              >
+                <div className="min-w-0">
+                  <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+                    {scanResult ? 'Identified plate' : 'Plate preview'}
+                  </span>
+                  <span className={`block font-display font-black tracking-[0.08em] text-base leading-tight ${isDark ? 'text-white' : 'text-gray-950'}`}>
+                    {formatFullProvincialPlate(plateNumber, selectedProvince.code)}
+                  </span>
+                </div>
+                <span className={`shrink-0 text-[10px] font-bold text-right ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
+                  {selectedProvince.name}
+                  <span className="block text-[9px] font-semibold opacity-80">
+                    {selectedProvince.code === 'WC' ? 'CA' : selectedProvince.code}
+                  </span>
+                </span>
+              </div>
+            )}
 
             {/* Provincial Plate Preview & Registration Number Input */}
             <div>
