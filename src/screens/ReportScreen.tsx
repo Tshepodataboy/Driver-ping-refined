@@ -136,6 +136,7 @@ export function ReportScreen() {
     }
     return null;
   });
+  const [isPhotoOpen, setIsPhotoOpen] = useState(false);
 
   // Automatically save report draft into sessionStorage whenever state updates
   useEffect(() => {
@@ -465,6 +466,7 @@ export function ReportScreen() {
     setCustomOtherText('');
     setCustomNote('');
     setPhotoPreview(null);
+    setIsPhotoOpen(false);
     setScanResult(null);
     setPlateType('standard');
     setSubmissionResult(null);
@@ -768,15 +770,23 @@ export function ReportScreen() {
             {photoPreview ? (
               <div className="space-y-2 relative z-10">
                 <div className="relative rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xs">
-                  <img
-                    src={photoPreview}
-                    alt="Vehicle preview"
-                    className="w-full h-44 object-cover"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsPhotoOpen(true)}
+                    aria-label="View photo full screen"
+                    className="block w-full cursor-zoom-in"
+                  >
+                    <img
+                      src={photoPreview}
+                      alt="Vehicle preview"
+                      className="w-full h-44 object-cover"
+                    />
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setPhotoPreview(null);
+                      setIsPhotoOpen(false);
                       setScanResult(null);
                     }}
                     className="absolute top-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer transition-colors flex items-center gap-1 border border-white/10"
@@ -785,19 +795,56 @@ export function ReportScreen() {
                     <span>Remove Photo</span>
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAiScanPlate}
-                  disabled={isScanningPlate}
-                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 text-white font-bold text-xs shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
-                >
-                  {isScanningPlate ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
+
+                <div className="flex flex-col items-center gap-1.5 pt-1">
+                  <div className="relative grid place-items-center">
+                    <span className="ai-orb-halo" aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={handleAiScanPlate}
+                      disabled={isScanningPlate}
+                      aria-label={isScanningPlate ? 'Scanning plate with AI' : 'Scan plate with AI'}
+                      title={isScanningPlate ? 'Scanning plate with AI…' : 'Scan plate with AI'}
+                      className={`ai-orb ${isScanningPlate ? 'ai-orb--busy' : ''}`}
+                    >
+                      {isScanningPlate ? (
+                        <Loader2 className="relative z-10 w-5 h-5 animate-spin" />
+                      ) : (
+                        <Sparkles className="relative z-10 w-5 h-5" strokeWidth={2.2} />
+                      )}
+                    </button>
+                  </div>
+                  {isScanningPlate && (
+                    <span className={`text-[10px] font-semibold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
+                      Reading province, then registration…
+                    </span>
                   )}
-                  <span>{isScanningPlate ? 'AI Scanning Plate (Province & Number)...' : 'Re-Scan Plate with AI'}</span>
-                </button>
+                </div>
+
+                {isPhotoOpen && (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Vehicle photo"
+                    onClick={() => setIsPhotoOpen(false)}
+                    className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+                  >
+                    <img
+                      src={photoPreview}
+                      alt="Vehicle photo full view"
+                      onClick={(e) => e.stopPropagation()}
+                      className="max-h-[88vh] max-w-full object-contain rounded-xl shadow-2xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsPhotoOpen(false)}
+                      aria-label="Close photo"
+                      className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/20 cursor-pointer transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
 
                 {aiNotice && (
                   <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
