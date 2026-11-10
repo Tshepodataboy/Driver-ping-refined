@@ -28,6 +28,7 @@ import {
   ProvincialPlate,
   InteractiveProvincialPlateInput,
   PROVINCE_DEFAULT_PLATES,
+  PROVINCE_NAMES,
   normalizeProvinceCode,
   formatFullProvincialPlate,
   stripProvinceCodeFromInput,
@@ -143,6 +144,13 @@ export function ReportScreen() {
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanningPlate, setIsScanningPlate] = useState(false);
+  const [scanResult, setScanResult] = useState<{
+    provinceCode: string;
+    provinceName: string;
+    plateTypeLabel: string;
+    registration: string;
+    confidence: number | null;
+  } | null>(null);
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,39 +176,65 @@ export function ReportScreen() {
         body: JSON.stringify({ photoBase64: imageDataUrl }),
       });
       const data = await res.json();
-      if (res.ok && data.data) {
-        const { rawOcrText, provinceCode, uniqueRegistrationNumber, plateText, fullPlate, observedCondition } = data.data;
 
-        // Step 1: Scan and identify provincial code first
+      if (res.status === 503) {
+        setScanResult(null);
+        setAiNotice('AI scanning is not active yet — add a GEMINI_API_KEY to enable plate recognition.');
+        return;
+      }
+
+      if (res.ok && data.data) {
+        const {
+          plateVisible,
+          provinceCode,
+          provinceName,
+          plateTypeLabel,
+          uniqueRegistrationNumber,
+          fullPlate,
+          rawOcrText,
+          observedCondition,
+          confidence,
+        } = data.data;
+
+        const rawNum = uniqueRegistrationNumber || fullPlate || rawOcrText;
+        if (plateVisible === false || !rawNum) {
+          setScanResult(null);
+          setAiNotice(data.error || 'No legible plate in this photo — move closer and re-scan.');
+          return;
+        }
+
+        // Step 1: province mark and plate type are resolved before any digits are read.
         let resolvedProv = selectedProvinceCode || 'GP';
         if (provinceCode) {
           resolvedProv = normalizeProvinceCode(provinceCode);
           setSelectedProvinceCode(resolvedProv);
         }
+        const resolvedProvName = provinceName || PROVINCE_NAMES[resolvedProv] || resolvedProv;
 
-        // Step 2: Auto-input unique plate number
-        const rawNum = uniqueRegistrationNumber || plateText || fullPlate || rawOcrText;
-        if (rawNum) {
-          const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
-          setPlateNumber(cleanUniqueReg);
-          setPlate(formatFullProvincialPlate(cleanUniqueReg, resolvedProv));
-        }
+        // Step 2: only the unique registration characters are written into the plate input.
+        const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
+        setPlateNumber(cleanUniqueReg);
+        setPlate(formatFullProvincialPlate(cleanUniqueReg, resolvedProv));
 
-        // Optional observed hazard
         if (observedCondition && !customNote) {
           setCustomNote(observedCondition);
         }
 
-        const ocrLabel = rawOcrText ? ` [OCR: "${rawOcrText}"]` : '';
-        setAiNotice(`✓ Gemini OCR Scan:${ocrLabel} • Province: ${resolvedProv === 'WC' ? 'CA (Western Cape)' : resolvedProv} • Auto-filled: ${rawNum ? stripProvinceCodeFromInput(rawNum, resolvedProv) : 'detected'}`);
-        setTimeout(() => setAiNotice(null), 5000);
+        setScanResult({
+          provinceCode: resolvedProv,
+          provinceName: resolvedProvName,
+          plateTypeLabel: plateTypeLabel || 'Plate',
+          registration: cleanUniqueReg,
+          confidence: typeof confidence === 'number' ? confidence : null,
+        });
+        setAiNotice('✓ Gemini read the plate — province identified, registration auto-filled.');
       } else {
+        setScanResult(null);
         setAiNotice(data.error || 'Gemini could not detect a plate clearly.');
-        setTimeout(() => setAiNotice(null), 3000);
       }
     } catch {
+      setScanResult(null);
       setAiNotice('Failed to scan plate with Gemini.');
-      setTimeout(() => setAiNotice(null), 3000);
     } finally {
       setIsScanningPlate(false);
     }
@@ -404,6 +438,7 @@ export function ReportScreen() {
     setCustomOtherText('');
     setCustomNote('');
     setPhotoPreview(null);
+    setScanResult(null);
     setSubmissionResult(null);
     setError(null);
     setReportCategoryPreset(null);
@@ -712,7 +747,10 @@ export function ReportScreen() {
                   />
                   <button
                     type="button"
-                    onClick={() => setPhotoPreview(null)}
+                    onClick={() => {
+                      setPhotoPreview(null);
+                      setScanResult(null);
+                    }}
                     className="absolute top-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer transition-colors flex items-center gap-1 border border-white/10"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -737,6 +775,50 @@ export function ReportScreen() {
                   <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
                     <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
                     <span className="font-medium text-[11px] leading-tight">{aiNotice}</span>
+                  </div>
+                )}
+
+                {scanResult && (
+                  <div className={`rounded-xl border overflow-hidden text-[11px] ${
+                    isDark ? 'bg-[#1A1C21] border-white/10' : 'bg-white border-gray-200 shadow-2xs'
+                  }`}>
+                    <div className={`flex items-center justify-between px-3 py-1.5 border-b ${
+                      isDark ? 'border-white/10' : 'border-gray-200'
+                    }`}>
+                      <span className={`text-[9px] font-extrabold uppercase tracking-wider ${isDark ? 'text-white/70' : 'text-gray-700'}`}>
+                        Gemini plate read
+                      </span>
+                      {scanResult.confidence !== null && (
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                          {Math.round(scanResult.confidence * 100)}% confidence
+                        </span>
+                      )}
+                    </div>
+                    <div className="px-3 py-2 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 shrink-0 rounded-full bg-[#941329] text-white text-[9px] font-black flex items-center justify-center mt-0.5">1</span>
+                        <div className="min-w-0">
+                          <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+                            Province & plate type
+                          </span>
+                          <span className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {scanResult.provinceName} ({scanResult.provinceCode === 'WC' ? 'CA' : scanResult.provinceCode})
+                            <span className={isDark ? 'text-white/60' : 'text-gray-600'}> · {scanResult.plateTypeLabel}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 shrink-0 rounded-full bg-[#941329] text-white text-[9px] font-black flex items-center justify-center mt-0.5">2</span>
+                        <div className="min-w-0">
+                          <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+                            Unique registration number
+                          </span>
+                          <span className={`font-display font-black tracking-[0.08em] text-sm ${isDark ? 'text-white' : 'text-gray-950'}`}>
+                            {scanResult.registration || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -809,7 +891,7 @@ export function ReportScreen() {
 
             {/* Horizontal Scrollable/Flex Province Pill Buttons [ GP ] [ CA ] [ ZN ] [ FS ] [ NW ] [ EC ] [ MP ] [ LP ] */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none mb-3">
-              {['GP', 'CA', 'ZN', 'FS', 'NW', 'EC', 'MP', 'LP'].map((code) => {
+              {['GP', 'CA', 'ZN', 'FS', 'NW', 'EC', 'MP', 'LP', 'NC'].map((code) => {
                 const actualCode = code === 'LP' ? 'L' : code === 'CA' ? 'WC' : code;
                 const isSelected = selectedProvince.code === actualCode || (code === 'CA' && selectedProvince.code === 'WC');
                 return (

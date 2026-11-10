@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 const scrypt = promisify(scryptCallback);
 import { db, DbUser } from './db.js';
 import { getGeminiClient, isGeminiConfigured, generateGeminiContentWithFallback, Type } from './gemini.js';
+import { normalizePlateScanResult } from './plateScan.js';
 
 export const apiRouter = express.Router();
 
@@ -1143,33 +1144,47 @@ apiRouter.post('/ai/extract-plate', optionalAuth, async (req: Request, res: Resp
       },
     };
 
-    const prompt = `You are a high-accuracy Optical Character Recognition (OCR) & Automated License Plate Recognition (ALPR) system for South African motor vehicles.
-Analyze this vehicle image and perform character recognition on the license plate:
+    const prompt = `You are Driver Ping's Automated License Plate Recognition (ALPR) engine for South African motor vehicles.
+Work strictly in TWO ORDERED STAGES. Never read the registration characters before stage 1 is complete.
 
-1. Perform OCR to read all visible characters printed on the vehicle license plate (rawOcrText).
-2. Identify the South African province indicator (GP, WC/CA, KZN/ZN, EC, FS, MP, LP, NW, NC).
-3. Extract the unique registration sequence (uniqueRegistrationNumber) excluding province codes (e.g. "CF 10 VD", "232-577", "18083").
-4. Return full formatted plate string (fullPlate).
-5. Identify any visible vehicle hazard or defect if present (observedCondition).`;
+STAGE 1 - Find and classify the plate:
+1. Locate the licence plate (front or rear) in the image. If no plate is legible at all, set plateVisible to false and leave the other fields empty.
+2. Read the province / issuing mark printed on the plate and map it to one of: GP (Gauteng), WC (Western Cape - shown as CA, CAA..., CY), KZN (KwaZulu-Natal - shown as ND, NP, NU, NUR, NT), EC (Eastern Cape - shown as CB, CBB), FS (Free State), MP (Mpumalanga), LP (Limpopo - shown as L), NW (North West), NC (Northern Cape).
+3. Classify the plate type: "standard" (regular provincial series such as "CF 10 VD GP" or "CA 812-482"), "personalised" (custom word/letter combination), "government" (government or municipal series), "diplomatic" (CD / diplomatic corps), "dealer" (dealer or trade plate), otherwise "unknown".
+
+STAGE 2 - Only now read the unique registration number:
+4. Transcribe the characters that belong to the registration itself, excluding the province mark, its prefix/suffix letters and any dash/space used only as grouping. Keep natural grouping with single spaces, e.g. "CF 10 VD", "812-482", "18083", "913-317".
+5. Do not invent characters. If a character is ambiguous, choose the most likely reading and lower the confidence.
+6. Return the full plate string as printed (province mark included) in fullPlate, and the raw characters you saw in rawOcrText.
+
+Finally, if a vehicle defect or hazard is clearly visible (broken light, flat tyre, missing mirror, smoke, damaged bodywork), describe it in at most 12 words in observedCondition, otherwise return an empty string.`;
 
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
-        rawOcrText: {
-          type: Type.STRING,
-          description: "Raw optical character recognition text read directly off the vehicle license plate",
+        plateVisible: {
+          type: Type.BOOLEAN,
+          description: "True only when a licence plate is clearly legible in the image",
         },
         provinceCode: {
           type: Type.STRING,
-          description: "Identified South African province code (GP, WC, KZN, EC, FS, MP, LP, NW, NC)",
+          description: "Stage 1 result: province code identified from the plate mark (GP, WC, KZN, EC, FS, MP, LP, NW, NC)",
+        },
+        plateType: {
+          type: Type.STRING,
+          description: "Stage 1 result: plate type (standard, personalised, government, diplomatic, dealer, unknown)",
         },
         uniqueRegistrationNumber: {
           type: Type.STRING,
-          description: "Unique registration number stripped of provincial prefix or suffix",
+          description: "Stage 2 result: registration characters only, with the province mark removed",
+        },
+        rawOcrText: {
+          type: Type.STRING,
+          description: "Everything read directly off the plate before any split into province mark and registration",
         },
         fullPlate: {
           type: Type.STRING,
-          description: "Full formatted plate string",
+          description: "Full plate string as printed, province mark included",
         },
         observedCondition: {
           type: Type.STRING,
@@ -1180,7 +1195,7 @@ Analyze this vehicle image and perform character recognition on the license plat
           description: "OCR recognition confidence score between 0.0 and 1.0",
         },
       },
-      required: ["rawOcrText", "provinceCode", "uniqueRegistrationNumber", "fullPlate"],
+      required: ["plateVisible", "rawOcrText", "provinceCode", "plateType", "uniqueRegistrationNumber", "fullPlate"],
     };
 
     const { text, modelUsed } = await generateGeminiContentWithFallback(
@@ -1188,7 +1203,8 @@ Analyze this vehicle image and perform character recognition on the license plat
       {
         responseMimeType: 'application/json',
         responseSchema,
-        systemInstruction: 'You are a high-precision Optical Character Recognition (OCR) model for vehicle license plates.',
+        systemInstruction:
+          'You are a high-precision ALPR/OCR engine. Always identify the province mark and plate type first, then read the unique registration number. Report empty strings instead of guessing.',
       }
     );
 
@@ -1197,24 +1213,37 @@ Analyze this vehicle image and perform character recognition on the license plat
     try {
       result = JSON.parse(rawJson);
     } catch {
-      result = { rawOcrText: '', fullPlate: '', provinceCode: '', uniqueRegistrationNumber: '', observedCondition: '' };
+      result = { plateVisible: false, rawOcrText: '', fullPlate: '', provinceCode: '', plateType: 'unknown', uniqueRegistrationNumber: '', observedCondition: '' };
+    }
+
+    // Stage 1 resolves the province mark and plate type; stage 2 keeps only the
+    // unique registration characters.
+    const data = { ...normalizePlateScanResult(result), modelUsed };
+
+    if (!data.plateVisible || (!data.uniqueRegistrationNumber && !data.fullPlate)) {
+      return res.status(422).json({
+        error: 'No legible licence plate found in this photo. Move closer, keep the plate flat in frame and try again.',
+        data,
+      });
     }
 
     // Log AI OCR action to Supabase audit_logs
     await db.createAuditLog({
       actorId: (req as AuthenticatedRequest).user?.id || null,
       actionType: 'AI_OCR_PLATE_EXTRACTED',
-      targetId: result.fullPlate || null,
+      targetId: data.fullPlate || null,
       targetType: 'license_plate',
       detailsJson: {
-        rawOcrText: result.rawOcrText,
-        provinceCode: result.provinceCode,
-        uniqueReg: result.uniqueRegistrationNumber,
+        rawOcrText: data.rawOcrText,
+        provinceCode: data.provinceCode,
+        plateType: data.plateType,
+        uniqueReg: data.uniqueRegistrationNumber,
+        confidence: data.confidence,
         modelUsed,
       },
     }).catch(() => {});
 
-    return res.json({ success: true, data: result, modelUsed });
+    return res.json({ success: true, data, modelUsed });
   } catch (error: any) {
     console.error('Gemini OCR extract-plate error:', error);
     return res.status(500).json({ error: error?.message || 'Failed to extract plate OCR details with Gemini.' });
