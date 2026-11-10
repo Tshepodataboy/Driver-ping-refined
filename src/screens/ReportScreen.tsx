@@ -34,6 +34,16 @@ import {
   stripProvinceCodeFromInput,
 } from '../components/ProvincialPlate.js';
 
+// Plate type options shown under the province pills. The AI scan selects the
+// matching option once it has classified the plate.
+const PLATE_TYPE_OPTIONS = [
+  { key: 'standard', label: 'Standard' },
+  { key: 'personalised', label: 'Personalised' },
+  { key: 'government', label: 'Government' },
+  { key: 'diplomatic', label: 'Diplomatic' },
+  { key: 'dealer', label: 'Dealer' },
+] as const;
+
 export function ReportScreen() {
   const {
     user,
@@ -144,6 +154,7 @@ export function ReportScreen() {
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanningPlate, setIsScanningPlate] = useState(false);
+  const [plateType, setPlateType] = useState<string>('standard');
   const [scanResult, setScanResult] = useState<{
     provinceCode: string;
     provinceName: string;
@@ -188,6 +199,7 @@ export function ReportScreen() {
           plateVisible,
           provinceCode,
           provinceName,
+          plateType: detectedPlateType,
           plateTypeLabel,
           uniqueRegistrationNumber,
           fullPlate,
@@ -211,6 +223,10 @@ export function ReportScreen() {
         }
         const resolvedProvName = provinceName || PROVINCE_NAMES[resolvedProv] || resolvedProv;
 
+        // Pick up the detected plate type in the plate type options.
+        const matchedType = PLATE_TYPE_OPTIONS.find((option) => option.key === detectedPlateType);
+        if (matchedType) setPlateType(matchedType.key);
+
         // Step 2: only the unique registration characters are written into the plate input.
         const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
         setPlateNumber(cleanUniqueReg);
@@ -223,7 +239,7 @@ export function ReportScreen() {
         setScanResult({
           provinceCode: resolvedProv,
           provinceName: resolvedProvName,
-          plateTypeLabel: plateTypeLabel || 'Plate',
+          plateTypeLabel: matchedType?.label || plateTypeLabel || 'Plate',
           registration: cleanUniqueReg,
           confidence: typeof confidence === 'number' ? confidence : null,
         });
@@ -439,6 +455,7 @@ export function ReportScreen() {
     setCustomNote('');
     setPhotoPreview(null);
     setScanResult(null);
+    setPlateType('standard');
     setSubmissionResult(null);
     setError(null);
     setReportCategoryPreset(null);
@@ -906,6 +923,31 @@ export function ReportScreen() {
                     }`}
                   >
                     {code}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Plate Type Options: auto-selected by the AI scan, adjustable here */}
+            <div className={`text-[9px] font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+              Plate type
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none mb-3">
+              {PLATE_TYPE_OPTIONS.map((option) => {
+                const isSelected = plateType === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setPlateType(option.key)}
+                    aria-pressed={isSelected}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer shrink-0 border ${
+                      isSelected
+                        ? (isDark ? 'bg-[#2A2E39] text-white border-white/40 ring-1 ring-white/20' : 'bg-[#941329] text-white border-[#941329] shadow-2xs')
+                        : (isDark ? 'bg-[#1E2027] hover:bg-[#282B34] text-white/70 border-white/10' : 'bg-white hover:bg-gray-100 text-gray-800 border-gray-200')
+                    }`}
+                  >
+                    {option.label}
                   </button>
                 );
               })}
