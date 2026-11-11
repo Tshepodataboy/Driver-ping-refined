@@ -1,0 +1,758 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext.js';
+import {
+  ShieldCheck,
+  ArrowRight,
+  AlertCircle,
+  AlertTriangle,
+  Mail,
+  User,
+  Phone,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Car,
+  X,
+} from 'lucide-react';
+import { ProvincialPlate } from '../components/ProvincialPlate.js';
+import { DriverPingLoader } from '../components/DriverPingLoader.js';
+
+const PROVINCES = [
+  { code: 'GP', name: 'Gauteng', plateSuffix: 'GP' },
+  { code: 'WC', name: 'Western Cape', plateSuffix: 'WP / CA' },
+  { code: 'KZN', name: 'KwaZulu-Natal', plateSuffix: 'ZN' },
+  { code: 'EC', name: 'Eastern Cape', plateSuffix: 'EC' },
+  { code: 'FS', name: 'Free State', plateSuffix: 'FS' },
+  { code: 'MP', name: 'Mpumalanga', plateSuffix: 'MP' },
+  { code: 'LP', name: 'Limpopo', plateSuffix: 'L' },
+  { code: 'NW', name: 'North West', plateSuffix: 'NW' },
+  { code: 'NC', name: 'Northern Cape', plateSuffix: 'NC' },
+];
+
+export function LoginPage() {
+  const { loginAsDemo, loginWithEmail, updateUserPreferences, registerVehicle, isLoading } = useApp();
+
+  // Mode: Sign In or Sign Up
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  // In Sign Up, step 1 = email, step 2 = name, surname, call number
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
+
+  // Sign In / Registration Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Step 2 Onboarding Fields
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
+  const [callNumber, setCallNumber] = useState('');
+  const [selectedProvince, setSelectedProvince] = useState('GP');
+  const [initialPlate, setInitialPlate] = useState('');
+
+  const [showMorePersonas, setShowMorePersonas] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Error Pop Up Modal State
+  const [showErrorPopup, setShowErrorPopup] = useState(false);
+  const [popupData, setPopupData] = useState<{
+    title: string;
+    message: string;
+    isUnregistered?: boolean;
+  }>({ title: '', message: '' });
+
+  const handleDemoSubmit = async (demoUserId: string = 'usr_alex_001') => {
+    setErrorMsg(null);
+    await loginAsDemo(demoUserId);
+  };
+
+  // Sign In Submit handler
+  const handleSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!email.trim()) {
+      const msg = 'Please enter your registered email address.';
+      setErrorMsg(msg);
+      setPopupData({
+        title: 'Email Required',
+        message: msg,
+        isUnregistered: false,
+      });
+      setShowErrorPopup(true);
+      return;
+    }
+
+    if (!password) {
+      const msg = 'Please enter your account password.';
+      setErrorMsg(msg);
+      setPopupData({
+        title: 'Password Required',
+        message: msg,
+        isUnregistered: false,
+      });
+      setShowErrorPopup(true);
+      return;
+    }
+
+    setSubmitting(true);
+    const res = await loginWithEmail(email.trim(), undefined, 'signin', password);
+    setSubmitting(false);
+
+    if (res.success) {
+      if (res.isNew) {
+        setSuccessMsg('Account created successfully! Please complete your driver profile details.');
+        setAuthMode('signup');
+        setSignupStep(2);
+      }
+    } else {
+      const rawError = res.error || 'Failed to sign in. Please verify your email and password.';
+      setErrorMsg(rawError);
+
+      const lower = rawError.toLowerCase();
+      const isUnregistered =
+        lower.includes('no account') ||
+        lower.includes('not exist') ||
+        lower.includes('unregistered') ||
+        lower.includes('not found');
+
+      setPopupData({
+        title: isUnregistered ? 'Account Not Found' : 'Incorrect Password',
+        message: isUnregistered
+          ? 'No account exists with this email address. Please check for typos or click below to create a new account.'
+          : 'The password entered is incorrect. Please verify your credentials and try again.',
+        isUnregistered,
+      });
+      setShowErrorPopup(true);
+    }
+  };
+
+  // Sign Up - Step 1: Email registration
+  const handleSignUpEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Please enter a valid email address to register');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long');
+      return;
+    }
+
+    const fullDriverName = firstName.trim()
+      ? (surname.trim() ? `${firstName.trim()} ${surname.trim()}` : firstName.trim())
+      : undefined;
+
+    setSubmitting(true);
+    const res = await loginWithEmail(email.trim(), fullDriverName, 'signup', password);
+    setSubmitting(false);
+
+    if (res.success) {
+      setSuccessMsg('Account created successfully! Welcome to Driver Ping.');
+      // When registered, AppContext immediately logs user in and transitions to dashboard
+    } else {
+      setErrorMsg(res.error || 'Registration failed. Please try again.');
+    }
+  };
+
+  // Sign Up - Step 2: Name, Surname, Call Number onboarding
+  const handleProfileOnboardingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (!firstName.trim()) {
+      setErrorMsg('Please enter your first name.');
+      return;
+    }
+    if (!surname.trim()) {
+      setErrorMsg('Please enter your surname.');
+      return;
+    }
+    if (!callNumber.trim() || callNumber.trim().length < 7) {
+      setErrorMsg('Please enter a valid call number (e.g. 082 123 4567 or +27 82 123 4567).');
+      return;
+    }
+
+    setSubmitting(true);
+    const combinedFullName = `${firstName.trim()} ${surname.trim()}`;
+    const cleanPlate = initialPlate.trim().toUpperCase();
+
+    const updateRes = await updateUserPreferences({
+      fullName: combinedFullName,
+      defaultProvinceCode: selectedProvince,
+      defaultPlate: cleanPlate || undefined,
+    });
+
+    if (cleanPlate) {
+      try {
+        await registerVehicle({ plate: cleanPlate });
+      } catch (err) {
+        console.warn('Initial vehicle registration error:', err);
+      }
+    }
+
+    setSubmitting(false);
+
+    if (updateRes.success) {
+      // User is now completely set up and authenticated in context!
+    } else {
+      setErrorMsg(updateRes.error || 'Could not save profile details. Please try again.');
+    }
+  };
+
+
+  return (
+    <div className="min-h-screen text-white flex flex-col justify-between p-4 selection:bg-white/20 selection:text-white font-sans relative">
+      <div className="w-full max-w-[420px] mx-auto py-6 space-y-5 relative z-10">
+        {/* Top Branding Header */}
+        <div className="text-center space-y-2 pt-2">
+          {/* SA Country Pill */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-widest text-amber-300 border border-white/10 shadow-lg">
+            <span>🇿🇦 SOUTH AFRICA ROAD SAFETY</span>
+          </div>
+
+          {/* Logo with Animated Ping Ring */}
+          <div className="relative w-16 h-16 mx-auto my-3 flex items-center justify-center">
+            <div className="absolute inset-0 bg-white/20 rounded-2xl animate-ping opacity-30"></div>
+            <div className="relative w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-2xl border-2 border-white/30 p-2">
+              <img
+                src="https://res.cloudinary.com/dwd83begj/image/upload/v1792686945/logo_icon-removebg-preview_e6k6ne.png"
+                alt="Driver Ping Logo"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-black font-display tracking-tight text-white uppercase">
+            Driver Ping
+          </h1>
+          <p className="text-sm text-white/80 font-medium max-w-xs mx-auto leading-snug">
+            Look out for each other on the road. Anonymous vehicle condition and safety alerts.
+          </p>
+        </div>
+
+        {/* Main Floating Auth Card */}
+        <div className="bg-white text-gray-900 rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden space-y-5 border border-white/20">
+          {/* Navigation Tabs: Sign In vs Sign Up */}
+          {signupStep === 1 && (
+            <div className="flex bg-gray-100 p-1 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                  authMode === 'signin'
+                    ? 'bg-white text-[#941329] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                  authMode === 'signup'
+                    ? 'bg-white text-[#941329] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
+
+          {/* Feedback messages */}
+          {errorMsg && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs flex items-center gap-2 border border-red-200 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2 border border-emerald-200 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* 1. SIGN IN MODE */}
+          {/* ============================================================ */}
+          {authMode === 'signin' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-black font-display text-gray-950">
+                  Sign In to Driver Ping
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Sign in using your registered Email address and password.
+                </p>
+              </div>
+
+              {/* Direct Sign In Form */}
+              <form onSubmit={handleSignInSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">Password</label>
+                  <input type="password" required minLength={8} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]" />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting || isLoading}
+                  className="w-full py-3.5 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <div className="flex items-center justify-center py-0.5">
+                      <DriverPingLoader height="18px" />
+                    </div>
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* 2. SIGN UP MODE - EMAIL REGISTRATION */}
+          {/* ============================================================ */}
+          {authMode === 'signup' && (
+            <div className="space-y-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-red-100 text-[#941329] rounded-full text-[9px] font-black uppercase tracking-wider mb-1.5">
+                  New Account Registration
+                </div>
+                <h2 className="text-xl font-black font-display text-gray-950">
+                  Create Driver Account
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Sign up with your details to receive vehicle alerts. Your account will be created and logged in immediately.
+                </p>
+              </div>
+
+              {/* Registration Form */}
+              <form onSubmit={handleSignUpEmailSubmit} className="space-y-3.5">
+                {/* Full Name in two columns */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Alex"
+                        className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      Surname
+                    </label>
+                    <input
+                      type="text"
+                      value={surname}
+                      onChange={(e) => setSurname(e.target.value)}
+                      placeholder="Morgan"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Email Address *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="driver@example.com"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Your details are securely stored in Supabase.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">Password *</label>
+                  <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]" />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting || isLoading}
+                  className="w-full py-3.5 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? (
+                    'Creating Account & Signing In...'
+                  ) : (
+                    <>
+                      <span>Create Account & Sign In</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* 3. SIGN UP MODE - STEP 2 (Name, Surname, Call Number Onboarding) */}
+          {/* ============================================================ */}
+          {authMode === 'signup' && signupStep === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-black uppercase tracking-wider mb-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Step 2 of 2 · Complete Driver Profile
+                </div>
+                <h2 className="text-xl font-black font-display text-gray-950">
+                  Driver Information
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Please enter your name, surname, and call number to complete registration.
+                </p>
+              </div>
+
+              <form onSubmit={handleProfileOnboardingSubmit} className="space-y-3.5">
+                {/* First Name & Surname in two columns */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      First Name *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Alex"
+                        className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                      Surname *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={surname}
+                      onChange={(e) => setSurname(e.target.value)}
+                      placeholder="Morgan"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                </div>
+
+                {/* Call Number / Phone */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Call / Mobile Number *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Phone className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      value={callNumber}
+                      onChange={(e) => setCallNumber(e.target.value)}
+                      placeholder="082 123 4567 or +27 82 123 4567"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Used for road emergency alerts and SMS notifications.
+                  </p>
+                </div>
+
+                {/* Province Selection */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Province
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <select
+                      value={selectedProvince}
+                      onChange={(e) => setSelectedProvince(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    >
+                      {PROVINCES.map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {p.name} ({p.plateSuffix})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Optional Default Plate */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Default Vehicle Plate (Optional)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Car className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={initialPlate}
+                      onChange={(e) => setInitialPlate(e.target.value)}
+                      placeholder="e.g. CA 882 GP"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 uppercase focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#941329]/30 focus:border-[#941329]"
+                    />
+                  </div>
+                  {initialPlate.trim() && (
+                    <div className="mt-2 w-36 mx-auto drop-shadow-xs">
+                      <ProvincialPlate
+                        provinceCode={selectedProvince}
+                        plateText={initialPlate.trim().toUpperCase()}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-2xl flex items-start gap-2 text-xs text-gray-600">
+                  <ShieldCheck className="w-4 h-4 text-[#941329] shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-tight">
+                    <strong>Strict Privacy:</strong> Your name and call number remain protected and are never shared in public alert feeds.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting || isLoading}
+                  className="w-full py-3.5 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-950/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? (
+                    'Saving Profile...'
+                  ) : (
+                    <>
+                      <span>Complete Profile & Enter Driver Ping</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* DEMO ACCESS SECTION */}
+          {/* ============================================================ */}
+          {signupStep === 1 && (
+            <div>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-[10px] font-extrabold uppercase tracking-widest">
+                  <span className="bg-white px-3 text-gray-400">INSTANT DEMO ACCESS</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleDemoSubmit('usr_alex_001')}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-[#B81D39] via-[#941329] to-[#6B0C1D] hover:from-[#a11831] hover:to-[#5a0917] text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center justify-between transition-all transform active:scale-[0.98] group cursor-pointer border border-red-400/30"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-black text-xs">
+                      ⚡
+                    </div>
+                    <div className="text-left">
+                      <div className="font-extrabold leading-none">
+                        Login as Demo Driver
+                      </div>
+                      <div className="text-[10px] text-amber-200 font-medium mt-0.5">
+                        Instant Access · Alex Morgan
+                      </div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                {/* Expandable options for other demo personas */}
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowMorePersonas(!showMorePersonas)}
+                    className="text-[11px] font-bold text-gray-500 hover:text-[#941329] inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{showMorePersonas ? 'Hide other demo accounts' : 'Select other demo accounts (Owner / Admin)'}</span>
+                    {showMorePersonas ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {showMorePersonas && (
+                  <div className="space-y-1.5 pt-1 animate-in fade-in duration-200">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => handleDemoSubmit('usr_jordan_002')}
+                      className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-left text-xs font-bold text-gray-800 flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div>
+                        <div className="text-gray-900">Jordan Lee (Driver)</div>
+                        <div className="text-[10px] text-gray-500 font-normal">
+                          Registered Driver · Jordan Lee
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold">
+                        Driver
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => handleDemoSubmit('usr_admin_003')}
+                      className="w-full py-2.5 px-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl text-left text-xs font-bold text-purple-950 flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div>
+                        <div className="text-purple-950">Sarah Admin</div>
+                        <div className="text-[10px] text-purple-700 font-normal">
+                          Compliance & Disputes · Sarah Admin
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded font-bold">
+                        Admin
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Incorrect Credentials / Unregistered Email Pop Up Modal */}
+      {showErrorPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-red-200/80 animate-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={() => setShowErrorPopup(false)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              aria-label="Close error popup"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 text-[#941329] flex items-center justify-center shrink-0 shadow-xs">
+                <AlertTriangle className="w-6 h-6 stroke-[2.3]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200/50">
+                  {popupData.isUnregistered ? 'Unregistered Email' : 'Login Failed'}
+                </span>
+                <h3 className="font-extrabold text-lg text-gray-950 font-display leading-tight mt-1">
+                  {popupData.title}
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-red-50/80 border border-red-200/80 rounded-2xl text-xs text-red-950 font-medium leading-relaxed my-3">
+              {popupData.message}
+            </div>
+
+            <div className="space-y-2 mt-4">
+              {popupData.isUnregistered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowErrorPopup(false);
+                    setAuthMode('signup');
+                    setErrorMsg(null);
+                  }}
+                  className="w-full py-3 px-4 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span>Create New Account (Sign Up)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowErrorPopup(false)}
+                className={`w-full py-2.5 px-4 font-bold text-xs rounded-2xl transition-colors cursor-pointer ${
+                  popupData.isUnregistered
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                    : 'bg-[#941329] hover:bg-[#7a0f21] text-white shadow-md'
+                }`}
+              >
+                {popupData.isUnregistered ? 'Try Different Email' : 'Try Again'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

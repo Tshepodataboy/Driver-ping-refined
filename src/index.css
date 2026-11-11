@@ -1,0 +1,857 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #111827;
+    background-color: #8C1226;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom crimson immersion background */
+.bg-crimson-gradient {
+  background: radial-gradient(circle at 50% 20%, #B81D39 0%, #941329 55%, #6B0C1D 100%);
+}
+
+.crimson-card-shadow {
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.45), 0 8px 24px -4px rgba(0, 0, 0, 0.25);
+}
+
+.crimson-soft-glow {
+  box-shadow: 0 10px 30px rgba(184, 29, 57, 0.4);
+}
+
+/* =========================================================================
+   LIGHT & DARK MODE THEME CARD SYSTEM
+   ========================================================================= */
+
+/* LIGHT MODE: White Cards with Dark Text */
+html:not(.dark) .glass-card,
+html:not(.dark) .glass-card-subtle,
+html:not(.dark) .glass-modal,
+html:not(.dark) .card-textured,
+html:not(.dark) .pro-form-card,
+html:not(.dark) .card-vibrant,
+.light .glass-card,
+.light .glass-card-subtle,
+.light .glass-modal,
+.light .card-textured,
+.light .pro-form-card,
+.light .card-vibrant {
+  background-color: #FAF8F6 !important;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('/assets/aistudio/image_55801d9a.png') !important;
+  background-repeat: repeat !important;
+  background-size: 64px 64px !important;
+  background-position: center !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  color: #111827 !important;
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.3) !important;
+}
+
+html:not(.dark) .pro-form-card,
+.light .pro-form-card {
+  border-radius: 32px !important;
+}
+
+html:not(.dark) .pro-squircle,
+.light .pro-squircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #F3F4F6;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+html:not(.dark) .pro-input,
+.light .pro-input {
+  background-color: #F9FAFB !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  color: #111827 !important;
+}
+html:not(.dark) .pro-input:focus,
+.light .pro-input:focus {
+  background-color: #FFFFFF !important;
+  border-color: #941329 !important;
+}
+
+/* Light mode text adaptions inside pro-form-card and glass-card */
+html:not(.dark) .glass-card h1,
+html:not(.dark) .glass-card h2,
+html:not(.dark) .glass-card h3,
+html:not(.dark) .glass-card h4,
+html:not(.dark) .glass-modal h1,
+html:not(.dark) .glass-modal h2,
+html:not(.dark) .glass-modal h3,
+html:not(.dark) .glass-modal h4,
+html:not(.dark) .pro-form-card h1,
+html:not(.dark) .pro-form-card h2,
+html:not(.dark) .pro-form-card h3,
+html:not(.dark) .pro-form-card h4,
+.light .glass-card h1,
+.light .glass-card h2,
+.light .glass-card h3,
+.light .glass-card h4,
+.light .glass-modal h1,
+.light .glass-modal h2,
+.light .glass-modal h3,
+.light .glass-modal h4,
+.light .pro-form-card h1,
+.light .pro-form-card h2,
+.light .pro-form-card h3,
+.light .pro-form-card h4 {
+  color: #111827 !important;
+}
+
+/* DARK MODE: Black/Graphite Cards with White Text */
+.dark .glass-card,
+.dark .glass-card-subtle,
+.dark .glass-modal,
+.dark .card-textured,
+.dark .pro-form-card,
+.dark .card-vibrant {
+  background-color: #1A1C20 !important;
+  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.75), 0 8px 24px -4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .pro-form-card {
+  border-radius: 32px !important;
+}
+
+.dark .pro-squircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #26282E;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dark .pro-input {
+  background-color: #131417 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #FFFFFF !important;
+}
+.dark .pro-input:focus {
+  background-color: #17181D !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Dark mode text and nested containers inside glass-card & glass-modal */
+.dark .glass-card h1,
+.dark .glass-card h2,
+.dark .glass-card h3,
+.dark .glass-card h4,
+.dark .glass-modal h1,
+.dark .glass-modal h2,
+.dark .glass-modal h3,
+.dark .glass-modal h4,
+.dark .pro-form-card h1,
+.dark .pro-form-card h2,
+.dark .pro-form-card h3,
+.dark .pro-form-card h4 {
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card p,
+.dark .glass-modal p {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.dark .glass-card .text-gray-950,
+.dark .glass-card .text-gray-900,
+.dark .glass-card .text-gray-800,
+.dark .glass-card .text-gray-700,
+.dark .glass-modal .text-gray-950,
+.dark .glass-modal .text-gray-900,
+.dark .glass-modal .text-gray-800,
+.dark .glass-modal .text-gray-700 {
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card .text-gray-600,
+.dark .glass-card .text-gray-500,
+.dark .glass-modal .text-gray-600,
+.dark .glass-modal .text-gray-500 {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.dark .glass-card .text-gray-400,
+.dark .glass-modal .text-gray-400 {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.dark .glass-card .bg-gray-50,
+.dark .glass-card .bg-gray-100,
+.dark .glass-card .bg-gray-200,
+.dark .glass-modal .bg-gray-50,
+.dark .glass-modal .bg-gray-100,
+.dark .glass-modal .bg-gray-200 {
+  background-color: #131417 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card .border-gray-100,
+.dark .glass-card .border-gray-200,
+.dark .glass-card .border-gray-300,
+.dark .glass-modal .border-gray-100,
+.dark .glass-modal .border-gray-200,
+.dark .glass-modal .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .glass-card input,
+.dark .glass-card textarea,
+.dark .glass-card select,
+.dark .glass-modal input,
+.dark .glass-modal textarea,
+.dark .glass-modal select {
+  background-color: #131417 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+.dark .glass-card input::placeholder,
+.dark .glass-card textarea::placeholder,
+.dark .glass-modal input::placeholder,
+.dark .glass-modal textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Bottom-nav active tab: same crimson aurora material as the report button's holder card */
+.nav-aurora-active {
+  background-color: #4C0617 !important;
+  background-image:
+    radial-gradient(ellipse 130% 120% at 82% 8%, rgba(244, 63, 94, 0.78) 0%, transparent 68%),
+    radial-gradient(circle at 12% 100%, rgba(190, 18, 60, 0.72) 0%, transparent 62%),
+    radial-gradient(circle at 45% 30%, rgba(251, 113, 133, 0.4) 0%, transparent 50%),
+    linear-gradient(145deg, #7F0E28 0%, #58081A 50%, #35040F 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 10px 26px -8px rgba(25, 2, 7, 0.8),
+              0 3px 10px -3px rgba(0, 0, 0, 0.45),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.34) !important;
+}
+
+.nav-aurora-active:hover {
+  border-color: rgba(255, 255, 255, 0.36) !important;
+}
+
+/* Fluid Aurora Red Mesh Gradient Card (User rule: All red cards remain the same in both modes) */
+.report-aurora-card {
+  position: relative !important;
+  background-color: #4C0617 !important;
+  background-image:
+    radial-gradient(ellipse 90% 75% at 80% 15%, rgba(244, 63, 94, 0.65) 0%, transparent 60%),
+    radial-gradient(ellipse 75% 65% at 15% 85%, rgba(190, 18, 60, 0.6) 0%, transparent 58%),
+    radial-gradient(circle at 35% 25%, rgba(251, 113, 133, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(45, 2, 9, 0.85) 0%, transparent 55%),
+    linear-gradient(145deg, #7F0E28 0%, #58081A 45%, #35040F 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow: 0 24px 60px -12px rgba(25, 2, 7, 0.8),
+              0 8px 24px -4px rgba(0, 0, 0, 0.4),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.38) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  overflow: hidden !important;
+}
+
+.report-aurora-card .btn {
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFF5F7 60%, #FCE7EB 100%);
+  color: #941329;
+  border: 0.18rem solid #ffffff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.75), 0 14px 34px -4px rgba(40, 2, 10, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+}
+
+.report-aurora-card .btn::before,
+.report-aurora-card .main::before {
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.7), inset 0 0 12px rgba(255, 255, 255, 0.4);
+}
+
+/* Hide scrollbar globally while preserving full scroll functionality */
+html, body, * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+
+/* ---------- Layout ---------- */
+.wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+  outline: none;
+}
+
+/* both items sit in the same grid cell, so one replaces the other */
+.stage {
+  display: grid;
+  place-items: center;
+}
+
+.go-wrap,
+.socials {
+  grid-area: 1 / 1;
+}
+
+/* isolation keeps the ring's z-index:-1 behind the button, not the page */
+.go-wrap {
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem; /* room for the outer ring */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* ---------- Button 1 (Report Art Squircle) ---------- */
+.btn {
+  position: relative;
+  background: linear-gradient(#ffffff 30%, #ffffff 30%, #d6d6d6);
+  width: 8rem;
+  height: 8rem;
+  border-radius: 10rem;
+  border: 0.18rem solid #ffffff;
+  transition: 0.3s;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.75), 0 0.3rem 0.3rem rgb(18 18 18 / 35%);
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: grey;
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn::before {
+  content: "";
+  width: 125%;
+  height: 125%;
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.7), 0 0.2rem 0.2rem inset rgba(255, 255, 255, 0.4);
+  position: absolute;
+  left: -12%;
+  top: -12%;
+  z-index: -1;
+  border-radius: inherit;
+  transition: 0.3s;
+}
+
+/* pressed: red flash for 0.5s */
+.wrapper:focus-within .btn,
+.wrapper.is-open .btn,
+.report-aurora-card .wrapper:focus-within .btn,
+.report-aurora-card .wrapper.is-open .btn,
+.btn.is-flashing {
+  border-color: #ff0033 !important;
+  box-shadow:
+    0 5px 3px rgb(18 18 18 / 35%),
+    0 0 35px rgba(255, 30, 30, 1),
+    0 0 70px rgba(255, 10, 40, 0.9) !important;
+  background: linear-gradient(0deg, #ffffff 30%, #ffe8ec 70%, #ffccd5) !important;
+  color: #ff0033 !important;
+  animation: flash-glow 0.5s linear !important;
+}
+
+.wrapper:focus-within .btn::before,
+.wrapper.is-open .btn::before,
+.report-aurora-card .wrapper:focus-within .btn::before,
+.report-aurora-card .wrapper.is-open .btn::before,
+.btn.is-flashing::before {
+  border-color: #ff0033 !important;
+  background: rgb(255, 130, 150) !important;
+  box-shadow: 0 0 35px rgba(255, 20, 50, 1), inset 0 0 14px #ff0033 !important;
+  animation: flash-ring 0.5s linear !important;
+}
+
+@keyframes flash-glow {
+  0%,
+  99% {
+    border-color: #ff0033;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 45px rgba(255, 30, 30, 1),
+      0 0 85px rgba(255, 10, 40, 0.95);
+    background: linear-gradient(0deg, #ffffff 20%, #ffebee 60%, #ffcdd2);
+    color: #ff0033;
+  }
+}
+
+@keyframes flash-ring {
+  0%,
+  99% {
+    border-color: #ff0033;
+    background: rgb(255, 120, 140);
+    box-shadow: 0 0 40px rgba(255, 20, 50, 1), inset 0 0.25rem 0.45rem #ff0033;
+  }
+}
+
+/* after the flash, GO shrinks and fades out (the grid takes its place) */
+.wrapper:focus-within .go-wrap,
+.wrapper.is-open .go-wrap {
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 0.25s ease 0.5s, transform 0.25s ease 0.5s;
+}
+
+/* ---------- Button 2 (social grid) ---------- */
+.main {
+  position: relative;
+  isolation: isolate; /* keeps the ring behind the cards, not the page */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+/* recessed ring, same material as the GO button's ring */
+.main::before {
+  content: "";
+  position: absolute;
+  inset: -0.9rem;
+  z-index: -1;
+  border-radius: 50%;
+  background: rgb(224, 224, 224);
+  box-shadow: 0 0.2rem 0.2rem inset #808080;
+}
+
+.up,
+.down {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5em;
+}
+
+/* hidden by default */
+.socials {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.5);
+  transform-origin: center;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+
+/* pops in right after the red flash */
+.wrapper:focus-within .socials,
+.wrapper.is-open .socials {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale(1);
+  transition:
+    opacity 0.35s ease 0.5s,
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s,
+    visibility 0s linear 0.5s;
+}
+
+/* cards share the GO button's texture */
+.card1, .card2, .card3, .card4 {
+  width: 90px;
+  height: 90px;
+  outline: none;
+  background: linear-gradient(#ffffff 30%, #d6d6d6);
+  border: 0.15rem solid #ffffff;
+  box-shadow: 0 0.3rem 0.3rem rgb(18 18 18 / 35%);
+  transition: 0.2s ease-in-out;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.card1 { border-radius: 90px 5px 5px 5px; }
+.card2 { border-radius: 5px 90px 5px 5px; }
+.card3 { border-radius: 5px 5px 5px 90px; }
+.card4 { border-radius: 5px 5px 90px 5px; }
+
+/* DARK MODE: 4 report quadrant buttons turn black with glowing icons */
+.dark .main::before {
+  background: #14161a;
+  box-shadow: 0 0.2rem 0.2rem inset #050608;
+}
+
+.dark .card1,
+.dark .card2,
+.dark .card3,
+.dark .card4 {
+  background: linear-gradient(#1f2228 30%, #111215) !important;
+  border: 0.15rem solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0.35rem 0.7rem rgba(0, 0, 0, 0.75) !important;
+}
+
+.dark .icon-quadrant-vehicle {
+  color: #fb7185;
+}
+
+.dark .icon-quadrant-driver {
+  color: #60a5fa;
+}
+
+.dark .icon-quadrant-road {
+  color: #fbbf24;
+}
+
+.dark .card1:hover, .dark .card1.active-hover {
+  background: linear-gradient(#941329 30%, #4c0519) !important;
+  border-color: #f43f5e !important;
+}
+.dark .card2:hover, .dark .card2.active-hover {
+  background: linear-gradient(#1e40af 30%, #172554) !important;
+  border-color: #60a5fa !important;
+}
+.dark .card3:hover, .dark .card3.active-hover {
+  background: linear-gradient(#b45309 30%, #78350f) !important;
+  border-color: #fbbf24 !important;
+}
+.dark .card4:hover, .dark .card4.active-hover {
+  background: linear-gradient(#6d28d9 30%, #2e1065) !important;
+  border-color: #a78bfa !important;
+}
+
+.dark .icon-quadrant-support {
+  color: #a78bfa;
+}
+
+/* Balanced optical centering within each curved quadrant */
+.icon-quadrant-vehicle {
+  transform: translate(8px, 8px);
+  color: #941329;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.icon-quadrant-driver {
+  transform: translate(-8px, 8px);
+  color: #1e40af;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.icon-quadrant-road {
+  transform: translate(8px, -8px);
+  color: #d97706;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+/* USA Police cop car red & blue strobe sequence for emergency button */
+@keyframes police-cop-strobe {
+  0%, 42% {
+    color: #ef4444; /* Vivid USA Police Red */
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.95));
+  }
+  43%, 48% {
+    color: #ffffff; /* Strobe flash transition */
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+  }
+  50%, 92% {
+    color: #2563eb; /* Vivid USA Police Blue */
+    filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.95));
+  }
+  93%, 98% {
+    color: #ffffff;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+  }
+  100% {
+    color: #ef4444;
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.95));
+  }
+}
+
+.icon-quadrant-support {
+  transform: translate(-8px, -8px);
+  color: #6d28d9;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+/* USA Police cop car red & blue strobe sequence for emergency form outline */
+@keyframes emergency-outline-strobe {
+  0%, 42% {
+    outline-color: #ef4444;
+    box-shadow: 0 0 0 2.5px #ef4444, 0 0 24px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  43%, 48% {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 32px rgba(255, 255, 255, 0.85), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  50%, 92% {
+    outline-color: #2563eb;
+    box-shadow: 0 0 0 2.5px #2563eb, 0 0 24px rgba(37, 99, 235, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  93%, 98% {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 32px rgba(255, 255, 255, 0.85), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    outline-color: #ef4444;
+    box-shadow: 0 0 0 2.5px #ef4444, 0 0 24px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.emergency-form-strobe {
+  outline: 2.5px solid #ef4444 !important;
+  outline-offset: 0px !important;
+  animation: emergency-outline-strobe 0.75s infinite linear !important;
+}
+
+/* hover & active-hover: keep glossy gradient tinted with category / emergency color and scale to 1.1 */
+.card1:hover, .card1.active-hover,
+.card2:hover, .card2.active-hover,
+.card3:hover, .card3.active-hover,
+.card4:hover, .card4.active-hover {
+  scale: 1.1 !important;
+  z-index: 10;
+  box-shadow: 0 0.45rem 0.8rem rgb(18 18 18 / 35%) !important;
+}
+
+.card1:hover, .card1.active-hover { background: linear-gradient(color-mix(in srgb, #941329 80%, white) 30%, #941329) !important; }
+.card2:hover, .card2.active-hover { background: linear-gradient(color-mix(in srgb, #1e40af 80%, white) 30%, #1e40af) !important; }
+.card3:hover, .card3.active-hover { background: linear-gradient(color-mix(in srgb, #d97706 80%, white) 30%, #d97706) !important; }
+.card4:hover, .card4.active-hover { background: linear-gradient(color-mix(in srgb, #7c3aed 80%, white) 30%, #7c3aed) !important; }
+
+.card1:hover .icon-quadrant-vehicle, .card1.active-hover .icon-quadrant-vehicle,
+.card2:hover .icon-quadrant-driver, .card2.active-hover .icon-quadrant-driver,
+.card3:hover .icon-quadrant-road, .card3.active-hover .icon-quadrant-road,
+.card4:hover .icon-quadrant-support, .card4.active-hover .icon-quadrant-support {
+  color: #ffffff !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+/* ---------- SOS hold countdown: police strobe around the REPORT button ---------- */
+.sos-police-btn {
+  cursor: default;
+  pointer-events: none;
+  box-shadow:
+    0 0 26px rgba(255, 255, 255, 0.7),
+    0 0.3rem 0.3rem rgb(18 18 18 / 35%);
+}
+
+.sos-police-ring {
+  position: absolute;
+  inset: -26px;
+  border-radius: 9999px;
+  border: 3px solid rgba(248, 113, 113, 0.9);
+  box-shadow:
+    0 0 42px 12px rgba(239, 68, 68, 0.6),
+    inset 0 0 26px rgba(239, 68, 68, 0.45);
+  animation: sos-police-lights 0.9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes sos-police-lights {
+  0%, 49% {
+    border-color: rgba(248, 113, 113, 0.95);
+    box-shadow:
+      0 0 44px 14px rgba(239, 68, 68, 0.65),
+      inset 0 0 28px rgba(239, 68, 68, 0.5);
+  }
+  50%, 100% {
+    border-color: rgba(96, 165, 250, 0.95);
+    box-shadow:
+      0 0 44px 14px rgba(37, 99, 235, 0.65),
+      inset 0 0 28px rgba(37, 99, 235, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sos-police-ring {
+    animation: none;
+    border-color: #f87171;
+    box-shadow: 0 0 30px 10px rgba(239, 68, 68, 0.5), inset 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Custom SVG Dash-Animated Loader ("DRIVER PING") */
+.loader {
+  --h: 56px;          /* letter height */
+  --ink: #fff;         /* letter colour */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  margin: 0.25em 0;
+}
+
+.letter {
+  display: block;
+  height: var(--h);
+  width: auto;         /* width follows each letter's viewBox */
+  overflow: visible;
+}
+
+.space {
+  width: calc(var(--h) * 0.3);
+}
+
+.dash {
+  stroke: var(--ink);
+  stroke-width: 10;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  animation: dashArray 2s ease-in-out infinite,
+             dashOffset 2s linear infinite;
+  animation-delay: calc(var(--i) * 0.1s);  /* stagger per letter */
+}
+
+.join-bevel {
+  stroke-linejoin: bevel;  /* stops the V's point from spiking below the baseline */
+}
+
+@keyframes dashArray {
+  0%   { stroke-dasharray: 0 1 359 0; }
+  50%  { stroke-dasharray: 0 359 1 0; }
+  100% { stroke-dasharray: 359 1 0 0; }
+}
+
+@keyframes dashOffset {
+  0%   { stroke-dashoffset: 385; }
+  100% { stroke-dashoffset: 5; }
+}
+
+@media (max-width: 640px) {
+  .loader { --h: 42px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash { animation: none; stroke-dasharray: none; }
+}
+
+/* pressed-in feel when not in half-second active-hover hold */
+.card1:active:not(.active-hover),
+.card2:active:not(.active-hover),
+.card3:active:not(.active-hover),
+.card4:active:not(.active-hover) {
+  scale: 1.04;
+  box-shadow: 0 0.1rem 0.1rem rgb(18 18 18 / 35%);
+}
+
+/* ---- AI scan orb: icon-only action with a live breathing glow ---- */
+.ai-orb {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 46%),
+    radial-gradient(circle at 50% 120%, rgba(126, 96, 255, 0.95), rgba(126, 96, 255, 0) 62%),
+    linear-gradient(158deg, #7d86ff 0%, #6b4dff 44%, #3a2c8c 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -10px 20px rgba(22, 10, 58, 0.5),
+    0 0 0 7px rgba(118, 96, 255, 0.09),
+    0 10px 26px rgba(74, 52, 200, 0.32);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.ai-orb:hover {
+  transform: scale(1.06);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -10px 20px rgba(22, 10, 58, 0.5),
+    0 0 0 9px rgba(118, 96, 255, 0.13),
+    0 12px 30px rgba(74, 52, 200, 0.4);
+}
+.ai-orb:active { transform: scale(0.96); }
+.ai-orb:disabled { cursor: default; opacity: 0.85; }
+.ai-orb:focus-visible { outline: 2px solid #a99bff; outline-offset: 5px; }
+.ai-orb::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 9999px;
+  border: 1px solid rgba(160, 148, 255, 0.55);
+  animation: ai-orb-ring 3.6s ease-out infinite;
+  pointer-events: none;
+}
+.ai-orb::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, 0.4) 34deg, rgba(255, 255, 255, 0) 108deg);
+  opacity: 0.55;
+  animation: ai-orb-sheen 5s linear infinite;
+  pointer-events: none;
+}
+.ai-orb-halo {
+  position: absolute;
+  inset: -22px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(120, 92, 255, 0.5) 0%, rgba(120, 92, 255, 0.17) 46%, rgba(120, 92, 255, 0) 72%);
+  filter: blur(5px);
+  animation: ai-orb-breathe 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.ai-orb--busy::before { animation-duration: 1.2s; }
+.ai-orb--busy .ai-orb-halo { animation-duration: 1.8s; }
+
+@keyframes ai-orb-ring {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  70% { opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes ai-orb-sheen {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ai-orb-breathe {
+  0%, 100% { transform: scale(0.9); opacity: 0.55; }
+  50% { transform: scale(1.1); opacity: 0.95; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb::before,
+  .ai-orb::after,
+  .ai-orb-halo { animation: none; }
+}
