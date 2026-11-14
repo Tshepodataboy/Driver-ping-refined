@@ -91,6 +91,7 @@ interface AppContextType {
     issueCode: string;
     issueTitle: string;
     customNote?: string;
+    location?: string;
     photoUrl?: string;
     idempotencyKey?: string;
   }) => Promise<{
@@ -110,10 +111,8 @@ interface AppContextType {
     error?: string;
   }>;
 
-  // Theme
+  // Theme (light only)
   theme: 'dark' | 'light';
-  setTheme: (theme: 'dark' | 'light') => void;
-  toggleTheme: () => void;
 
   // Admin actions
   fetchAdminVerifications: () => Promise<OwnershipVerificationItem[]>;
@@ -162,50 +161,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState<boolean>(false);
 
-  // Theme management: default to light, saved in localStorage
-  const [theme, setThemeState] = useState<'dark' | 'light'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('driver_ping_theme');
-      if (saved === 'light' || saved === 'dark') return saved;
-    }
-    return 'light';
-  });
-
-  const setTheme = (newTheme: 'dark' | 'light') => {
-    setThemeState(newTheme);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('driver_ping_theme', newTheme);
-    }
-    // Update document element class synchronously
-    if (typeof document !== 'undefined') {
-      const root = document.documentElement;
-      if (newTheme === 'dark') {
-        root.classList.add('dark');
-        root.classList.remove('light');
-      } else {
-        root.classList.add('light');
-        root.classList.remove('dark');
-      }
-    }
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  // Sync document root class with active theme on initial mount and state changes
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const root = document.documentElement;
-      if (theme === 'dark') {
-        root.classList.add('dark');
-        root.classList.remove('light');
-      } else {
-        root.classList.add('light');
-        root.classList.remove('dark');
-      }
-    }
-  }, [theme]);
+  // Theme is fixed to light: dark mode has been removed.
+  const theme: 'dark' | 'light' = 'light';
 
   // Demo account status check
   const isDemoAccount = Boolean(user && DEMO_USER_IDS.includes(user.id));
@@ -669,6 +626,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     issueCode: string;
     issueTitle: string;
     customNote?: string;
+    location?: string;
     photoUrl?: string;
     idempotencyKey?: string;
   }) => {
@@ -851,8 +809,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         refreshAlerts,
         takeAlertAction,
         theme,
-        setTheme,
-        toggleTheme,
         fetchAdminVerifications,
         reviewVerification,
         fetchAdminDisputes,

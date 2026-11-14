@@ -46,7 +46,7 @@ export function LandingPage() {
   return (
     <div className="min-h-screen text-gray-900 selection:bg-rose-500 selection:text-white">
       {/* LANDING HEADER / NAVBAR */}
-      <header className="sticky top-0 z-40 bg-gray-950/80 backdrop-blur-md border-b border-white/10 px-4 py-3">
+      <header className="sticky top-0 z-40 bg-gray-950/80 border-b border-white/10 px-4 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function LandingPage() {
       {/* HERO SECTION */}
       <section className="relative pt-12 pb-20 px-4 max-w-6xl mx-auto text-center">
         {/* Top Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-xs font-bold text-white mb-6 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs font-bold text-white mb-6 shadow-sm">
           <Flame className="w-4 h-4 text-rose-400" />
           <span>Direct Vehicle & Road User Connection</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
@@ -146,7 +146,7 @@ export function LandingPage() {
 
           <button
             onClick={handleStartReport}
-            className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-sm rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center gap-2 transition-all"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-sm rounded-2xl border border-white/20 flex items-center justify-center gap-2 transition-all"
           >
             <Camera className="w-4 h-4 text-amber-300" />
             <span>Send Driver Alert</span>
@@ -195,7 +195,7 @@ export function LandingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {/* Feature 1 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-rose-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-rose-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <EyeOff className="w-6 h-6" />
             </div>
@@ -208,7 +208,7 @@ export function LandingPage() {
           </div>
 
           {/* Feature 2 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-amber-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-amber-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <ShieldCheck className="w-6 h-6" />
             </div>
@@ -221,7 +221,7 @@ export function LandingPage() {
           </div>
 
           {/* Feature 3 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-rose-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-rose-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Camera className="w-6 h-6" />
             </div>
@@ -234,7 +234,7 @@ export function LandingPage() {
           </div>
 
           {/* Feature 4 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-blue-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-blue-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Users className="w-6 h-6" />
             </div>
@@ -247,7 +247,7 @@ export function LandingPage() {
           </div>
 
           {/* Feature 5 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-emerald-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-emerald-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Lock className="w-6 h-6" />
             </div>
@@ -260,7 +260,7 @@ export function LandingPage() {
           </div>
 
           {/* Feature 6 */}
-          <div className="bg-gray-950/70 backdrop-blur-md p-6 rounded-[28px] border border-white/10 hover:border-purple-500/40 transition-all hover:translate-y-[-2px] group">
+          <div className="bg-gray-950/70 p-6 rounded-[28px] border border-white/10 hover:border-purple-500/40 transition-all hover:translate-y-[-2px] group">
             <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Car className="w-6 h-6" />
             </div>
@@ -288,7 +288,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
             {/* Step 1 */}
-            <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center relative">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative">
               <div className="w-10 h-10 rounded-full bg-rose-500 text-white font-black text-sm flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-500/30">
                 1
               </div>
@@ -301,7 +301,7 @@ export function LandingPage() {
             </div>
 
             {/* Step 2 */}
-            <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center relative">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative">
               <div className="w-10 h-10 rounded-full bg-amber-500 text-gray-950 font-black text-sm flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/30">
                 2
               </div>
@@ -314,7 +314,7 @@ export function LandingPage() {
             </div>
 
             {/* Step 3 */}
-            <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center relative">
+            <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center relative">
               <div className="w-10 h-10 rounded-full bg-emerald-500 text-white font-black text-sm flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30">
                 3
               </div>

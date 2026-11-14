@@ -74,16 +74,12 @@ export function HomeScreen() {
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [mapProvinceFilter, setMapProvinceFilter] = useState<string>('ALL');
-  const [pressedQuadrant, setPressedQuadrant] = useState<'vehicle' | 'driver' | 'road' | 'support' | null>(null);
-  const [hoveredCategory, setHoveredCategory] = useState<'vehicle' | 'driver' | 'road' | 'support' | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<'vehicle' | 'driver' | 'road' | 'support' | null>(null);
+  const [pressedQuadrant, setPressedQuadrant] = useState<'vehicle' | 'driver' | 'road' | 'sos' | null>(null);
+  const [hoveredCategory, setHoveredCategory] = useState<'vehicle' | 'driver' | 'road' | 'sos' | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<'vehicle' | 'driver' | 'road' | 'sos' | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFlashing, setIsFlashing] = useState(false);
-  const [sosCountdown, setSosCountdown] = useState<number | null>(null);
   const quadrantTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const sosHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const sosLongPressRef = useRef(false);
-  const sosArmedAtRef = useRef(0);
 
   const activeCategory = pressedQuadrant || hoveredCategory || selectedCategory;
 
@@ -95,8 +91,8 @@ export function HomeScreen() {
         return 'Driver Behavior';
       case 'road':
         return 'Road Violation';
-      case 'support':
-        return 'Technical Support';
+      case 'sos':
+        return 'Emergency SOS';
       default:
         return '';
     }
@@ -106,9 +102,6 @@ export function HomeScreen() {
     return () => {
       if (quadrantTimerRef.current) {
         clearTimeout(quadrantTimerRef.current);
-      }
-      if (sosHoldTimerRef.current) {
-        clearTimeout(sosHoldTimerRef.current);
       }
     };
   }, []);
@@ -166,51 +159,6 @@ export function HomeScreen() {
     setCallReportSuccess(false);
     setCallReportFeedback(null);
   };
-
-  // Press and hold REPORT for 2s to arm the SOS countdown.
-  const clearSosHold = () => {
-    if (sosHoldTimerRef.current) {
-      clearTimeout(sosHoldTimerRef.current);
-      sosHoldTimerRef.current = null;
-    }
-  };
-
-  const startSosHold = () => {
-    if (sosCountdown !== null) return;
-    sosLongPressRef.current = false;
-    clearSosHold();
-    sosHoldTimerRef.current = setTimeout(() => {
-      sosLongPressRef.current = true;
-      setIsReportOpen(false);
-      setPressedQuadrant(null);
-      setHoveredCategory(null);
-      setSelectedCategory(null);
-      sosArmedAtRef.current = Date.now();
-      setSosCountdown(5);
-    }, 2000);
-  };
-
-  // Ignore the release that follows the hold, so the countdown is not cancelled instantly.
-  const cancelSosCountdown = () => {
-    if (Date.now() - sosArmedAtRef.current < 400) return;
-    setSosCountdown(null);
-  };
-
-  // 5s countdown to the emergency call; any tap cancels instead.
-  useEffect(() => {
-    if (sosCountdown === null) return;
-    if (sosCountdown <= 0) {
-      setSosCountdown(null);
-      setShowEmergencyModal(true);
-      handleStartEmergencyCall();
-      return;
-    }
-    const timer = setTimeout(() => {
-      setSosCountdown((current) => (current === null ? null : current - 1));
-    }, 1000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sosCountdown]);
 
   const handleEndEmergencyCall = () => {
     setIsInEmergencyCall(false);
@@ -283,7 +231,7 @@ export function HomeScreen() {
     }, 550);
   };
 
-  const handleQuadrantClick = (target: 'vehicle' | 'driver' | 'road' | 'support') => {
+  const handleQuadrantClick = (target: 'vehicle' | 'driver' | 'road' | 'sos') => {
     setSelectedCategory(target);
     if (pressedQuadrant) return;
     setPressedQuadrant(target);
@@ -299,8 +247,11 @@ export function HomeScreen() {
         handleStartReport('driver_behaviour');
       } else if (target === 'road') {
         handleStartReport('road_violation');
-      } else if (target === 'support') {
-        setShowSupportModal(true);
+      } else if (target === 'sos') {
+        setIsInEmergencyCall(false);
+        setCallReportSuccess(false);
+        setCallReportFeedback(null);
+        setShowEmergencyModal(true);
       }
     }, 500);
   };
@@ -363,7 +314,7 @@ export function HomeScreen() {
 
           {/* Frosted Glass Category Indicator Pill (active category only) */}
           {activeCategory && (
-            <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 hover:bg-black/35 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all shadow-xs cursor-default">
+            <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 hover:bg-black/35 border border-white/20 text-[11px] font-bold text-white transition-all shadow-xs cursor-default">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>{getPillLabel()}</span>
             </div>
@@ -376,25 +327,15 @@ export function HomeScreen() {
             <div className="stage">
               <div className="go-wrap">
                 <button
-                  className={`btn group focus:outline-none select-none ${isFlashing ? 'is-flashing' : ''}`}
-                  onPointerDown={startSosHold}
-                  onPointerUp={clearSosHold}
-                  onPointerLeave={clearSosHold}
-                  onPointerCancel={clearSosHold}
-                  onContextMenu={(e) => e.preventDefault()}
-                  onClick={(e) => {
-                    if (sosLongPressRef.current) {
-                      sosLongPressRef.current = false;
-                      return;
-                    }
-                    handleReportButtonClick(e);
-                  }}
-                  onDoubleClick={() => handleStartReport()}
-                  aria-label="Report vehicle. Press and hold for emergency SOS"
-                  title="Click to select issue, double click to report, hold 2s for SOS"
-                >
-                  REPORT
-                </button>
+                    className={`btn group focus:outline-none select-none ${isFlashing ? 'is-flashing' : ''}`}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onClick={handleReportButtonClick}
+                    onDoubleClick={() => handleStartReport()}
+                    aria-label="Report vehicle. Tap to open the reporting options"
+                    title="Click to select issue, double click to report"
+                  >
+                    REPORT
+                  </button>
               </div>
 
               <div className="main socials">
@@ -462,18 +403,18 @@ export function HomeScreen() {
                     </svg>
                   </button>
 
-                  {/* 4th button: Technical Support */}
+                  {/* 4th button: Emergency SOS */}
                   <button
-                    className={`card4 group/c4 relative ${pressedQuadrant === 'support' ? 'active-hover' : ''}`}
-                    aria-label="Technical Support button"
-                    title="Technical Support: app, camera and account help"
-                    onClick={() => handleQuadrantClick('support')}
-                    onMouseEnter={() => setHoveredCategory('support')}
+                    className={`card4 group/c4 relative ${pressedQuadrant === 'sos' ? 'active-hover' : ''}`}
+                    aria-label="Emergency SOS button"
+                    title="Emergency SOS: 112 emergency services"
+                    onClick={() => handleQuadrantClick('sos')}
+                    onMouseEnter={() => setHoveredCategory('sos')}
                     onMouseLeave={() => setHoveredCategory(null)}
                   >
-                    <div className="flex flex-col items-center justify-center icon-quadrant-support">
-                      <LifeBuoy className="w-7 h-7 stroke-[2.2]" />
-                      <span className="text-[8px] font-black tracking-tighter uppercase leading-none mt-0.5">HELP</span>
+                    <div className="flex flex-col items-center justify-center icon-quadrant-sos">
+                      <Siren className="w-7 h-7 stroke-[2.2]" />
+                      <span className="text-[8px] font-black tracking-tighter uppercase leading-none mt-0.5">SOS</span>
                     </div>
                   </button>
                 </div>
@@ -487,7 +428,7 @@ export function HomeScreen() {
           <button
             type="button"
             onClick={() => setShowMapModal(true)}
-            className={`w-10 h-10 rounded-full active:scale-95 border backdrop-blur-md flex items-center justify-center transition-all shadow-md cursor-pointer group relative ${
+            className={`w-10 h-10 rounded-full active:scale-95 border flex items-center justify-center transition-all shadow-md cursor-pointer group relative ${
               theme === 'dark'
                 ? 'bg-[#14161a] hover:bg-[#1f2228] border-white/20 text-rose-400 shadow-black/70 ring-1 ring-white/10'
                 : 'bg-white hover:bg-white/95 border-white text-[#941329] shadow-md'
@@ -505,7 +446,7 @@ export function HomeScreen() {
       <div className="flex justify-center mt-3">
         <button
           onClick={() => setShowGuideModal(true)}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 hover:bg-white/15 active:scale-[0.98] border border-white/15 backdrop-blur-md rounded-full text-xs font-semibold text-white/90 hover:text-white transition-all shadow-xs cursor-pointer group"
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 hover:bg-white/15 active:scale-[0.98] border border-white/15 rounded-full text-xs font-semibold text-white/90 hover:text-white transition-all shadow-xs cursor-pointer group"
           title="Guide: Learn how the 4 reporting buttons work"
         >
           <HelpCircle className="w-3.5 h-3.5 text-rose-300 group-hover:scale-110 transition-transform shrink-0" />
@@ -711,7 +652,7 @@ export function HomeScreen() {
 
       {/* Selected Alert Quick-Action Modal */}
       {selectedAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
           <div className={`rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-[#181A20] text-white border-white/15' : 'bg-white text-gray-950 border-gray-200'
           }`}>
@@ -858,42 +799,9 @@ export function HomeScreen() {
         </div>
       )}
 
-      {/* SOS COUNTDOWN: frosted glass over the app, REPORT button kept clear */}
-      {sosCountdown !== null && (
-        <div
-          role="alertdialog"
-          aria-modal="true"
-          aria-live="assertive"
-          aria-label={`Emergency SOS call starting in ${sosCountdown} seconds. Tap anywhere to cancel.`}
-          onClick={cancelSosCountdown}
-          className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-6 px-6 text-center bg-black/50 backdrop-blur-2xl animate-in fade-in"
-        >
-          <div className="relative grid place-items-center">
-            <span className="sos-police-ring" aria-hidden="true" />
-            <div className="btn sos-police-btn">REPORT</div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-rose-300">
-              Emergency SOS in
-            </span>
-            <span className="block font-display font-black text-7xl leading-none text-white tabular-nums drop-shadow-[0_4px_24px_rgba(0,0,0,0.55)]">
-              {sosCountdown}
-            </span>
-            <span className="block text-xs font-bold text-white/85">
-              Calling 112 emergency services
-            </span>
-          </div>
-
-          <div className="px-4 py-2 rounded-full bg-white/10 border border-white/25 text-white text-[11px] font-bold backdrop-blur-md">
-            Tap anywhere to cancel
-          </div>
-        </div>
-      )}
-
       {/* 5. EMERGENCY CONTACTS MODAL */}
       {showEmergencyModal && (
-        <div className="fixed top-14 inset-x-0 bottom-0 z-50 flex items-start justify-center p-3 pt-3 pb-32 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in">
+        <div className="fixed top-14 inset-x-0 bottom-0 z-50 flex items-start justify-center p-3 pt-3 pb-32 bg-black/80 overflow-y-auto animate-fade-in">
           <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-5 sm:p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10 emergency-form-strobe mb-8">
             <div className="flex items-center justify-between mb-3">
               <button
@@ -1213,7 +1121,7 @@ export function HomeScreen() {
 
       {/* TECHNICAL SUPPORT MODAL */}
       {showSupportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
           <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               type="button"
@@ -1282,7 +1190,7 @@ export function HomeScreen() {
 
       {/* 4 Reporting Buttons Guide Modal */}
       {showGuideModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
           <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowGuideModal(false)}
@@ -1338,13 +1246,13 @@ export function HomeScreen() {
                     <line x1="12" y1="2" x2="12" y2="22" strokeDasharray="3 3" />
                   </svg>
                 </div>
-                {/* 4. Technical Support Mini */}
+                {/* 4. Emergency SOS Mini */}
                 <div
-                  className="w-7 h-7 bg-white rounded-tl-[3px] rounded-tr-[3px] rounded-br-[14px] rounded-bl-[3px] shadow-xs flex flex-col items-center justify-center text-[#6d28d9]"
-                  title="Technical Support: app, camera, account"
+                  className="w-7 h-7 bg-white rounded-tl-[3px] rounded-tr-[3px] rounded-br-[14px] rounded-bl-[3px] shadow-xs flex flex-col items-center justify-center text-[#dc2626]"
+                  title="Emergency SOS: 112 emergency services"
                 >
-                  <LifeBuoy className="w-2.5 h-2.5 stroke-[2.2]" />
-                  <span className="text-[5px] font-black tracking-tighter leading-none">HELP</span>
+                  <Siren className="w-2.5 h-2.5 stroke-[2.2]" />
+                  <span className="text-[5px] font-black tracking-tighter leading-none">SOS</span>
                 </div>
               </div>
               <div className="text-[11px] text-gray-700 leading-snug">
@@ -1427,25 +1335,25 @@ export function HomeScreen() {
                 </p>
               </div>
 
-              {/* Button 4: Technical Support */}
-              <div className="p-3 bg-violet-50/60 border border-[#7c3aed]/20 rounded-2xl">
+              {/* Button 4: Emergency SOS */}
+              <div className="p-3 bg-red-50/60 border border-[#dc2626]/20 rounded-2xl">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-tl-[3px] rounded-tr-[3px] rounded-br-[16px] rounded-bl-[3px] bg-white border border-[#7c3aed]/20 shadow-xs flex flex-col items-center justify-center text-[#6d28d9] shrink-0">
-                      <LifeBuoy className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span className="text-[6px] font-black tracking-tighter uppercase leading-none mt-0.5">HELP</span>
+                    <div className="w-8 h-8 rounded-tl-[3px] rounded-tr-[3px] rounded-br-[16px] rounded-bl-[3px] bg-white border border-[#dc2626]/20 shadow-xs flex flex-col items-center justify-center text-[#dc2626] shrink-0">
+                      <Siren className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span className="text-[6px] font-black tracking-tighter uppercase leading-none mt-0.5">SOS</span>
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-gray-950">4. Technical Support</h4>
-                      <span className="text-[10px] text-violet-600 font-medium">Bottom-Right Button · Violet</span>
+                      <h4 className="text-xs font-bold text-gray-950">4. Emergency SOS</h4>
+                      <span className="text-[10px] text-red-600 font-medium">Bottom-Right Button · Red</span>
                     </div>
                   </div>
-                  <span className="text-[9px] font-black text-white bg-[#7c3aed] px-2 py-0.5 rounded-full shadow-2xs">
-                    Help
+                  <span className="text-[9px] font-black text-white bg-[#dc2626] px-2 py-0.5 rounded-full shadow-2xs">
+                    SOS
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-700 leading-relaxed mt-1">
-                  For the app, not the road: opens quick fixes for plate scans, camera and photo permissions, alerts that will not refresh, and sign-in trouble, with a direct line to the DriverPing team.
+                  For real emergencies. Opens the SOS panel to call 112 on loudspeaker, dial the police on 10111, and capture the plates involved while the call is live.
                 </p>
               </div>
             </div>
@@ -1477,7 +1385,7 @@ export function HomeScreen() {
           <button
             type="button"
             onClick={() => setShowMapModal(false)}
-            className={`absolute top-4 left-4 z-30 p-2.5 rounded-full backdrop-blur-md shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center justify-center ${
+            className={`absolute top-4 left-4 z-30 p-2.5 rounded-full shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center justify-center ${
               isDark
                 ? 'bg-[#16181D]/90 hover:bg-[#22252C] text-white border border-white/20'
                 : 'bg-white hover:bg-gray-100 text-gray-950 border border-gray-200/90 shadow-md'
@@ -1540,7 +1448,7 @@ export function HomeScreen() {
               {/* Feature Highlights Grid */}
               <div className="w-full space-y-2.5 text-left mb-6">
                 {/* 1. Potholes */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
                   isDark
                     ? 'bg-slate-900/80 border-slate-800 text-white'
                     : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
@@ -1561,7 +1469,7 @@ export function HomeScreen() {
                 </div>
 
                 {/* 2. Accidents */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
                   isDark
                     ? 'bg-slate-900/80 border-slate-800 text-white'
                     : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
@@ -1582,7 +1490,7 @@ export function HomeScreen() {
                 </div>
 
                 {/* 3. Traffic Jams */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md border ${
+                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
                   isDark
                     ? 'bg-slate-900/80 border-slate-800 text-white'
                     : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'

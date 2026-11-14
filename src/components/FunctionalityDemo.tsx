@@ -37,7 +37,7 @@ export function FunctionalityDemo() {
   };
 
   return (
-    <div className="w-full bg-gray-950/90 backdrop-blur-2xl border border-white/15 rounded-[36px] p-6 sm:p-10 shadow-2xl relative overflow-hidden text-white">
+    <div className="w-full bg-gray-950/90 border border-white/15 rounded-[36px] p-6 sm:p-10 shadow-2xl relative overflow-hidden text-white">
       {/* Background Radial Glows */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-rose-600/10 rounded-full blur-[90px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[90px] pointer-events-none" />

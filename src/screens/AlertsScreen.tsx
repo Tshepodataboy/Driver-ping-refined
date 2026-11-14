@@ -20,6 +20,7 @@ import {
   Siren,
   Camera,
   Image as ImageIcon,
+  MapPin,
 } from 'lucide-react';
 
 import { ProvincialPlate, detectProvinceFromPlate } from '../components/ProvincialPlate.js';
@@ -275,6 +276,17 @@ export function AlertsScreen() {
                     </div>
                   </div>
 
+                  {alert.location && (
+                    <span className={`inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      isDark
+                        ? 'bg-[#1F2128] border-white/10 text-white/75'
+                        : 'bg-gray-50 border-gray-200 text-gray-700'
+                    }`}>
+                      <MapPin className="w-3 h-3 text-[#941329] shrink-0" />
+                      Incident area: {alert.location}
+                    </span>
+                  )}
+
                   {alert.customNote && (
                     <p className={`text-xs font-semibold px-3 py-2 rounded-xl italic border ${
                       isDark
@@ -294,7 +306,7 @@ export function AlertsScreen() {
                         alt="Observation attachment preview"
                         className="w-full h-36 object-cover transition-transform duration-300 group-hover/photo:scale-[1.02]"
                       />
-                      <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/80 backdrop-blur-md rounded-lg text-[10px] font-extrabold text-white flex items-center gap-1.5 shadow-sm border border-white/20">
+                      <div className="absolute top-2 left-2 px-2.5 py-1 bg-black/80 rounded-lg text-[10px] font-extrabold text-white flex items-center gap-1.5 shadow-sm border border-white/20">
                         <Camera className="w-3.5 h-3.5 text-rose-400" /> Photo Attached
                       </div>
                     </div>
@@ -308,7 +320,7 @@ export function AlertsScreen() {
 
       {/* FULL ALERT DETAIL MODAL */}
       {selectedAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
           <div className={`rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-[#181A20] text-white border-white/15' : 'bg-white text-gray-950 border-gray-200'
           }`}>
@@ -350,6 +362,21 @@ export function AlertsScreen() {
               "A road user reported a possible observation. Please check when safe."
             </div>
 
+            {selectedAlert.location && (
+              <div className={`mt-3 p-3 rounded-2xl text-xs border flex items-start gap-2 ${
+                isDark ? 'bg-[#1F2128] border-white/10 text-white/90' : 'bg-gray-50 border-gray-200/80 text-gray-700'
+              }`}>
+                <MapPin className="w-4 h-4 text-[#941329] shrink-0 mt-0.5" />
+                <span>
+                  <span className={`font-semibold block mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Incident area:</span>
+                  {selectedAlert.location}
+                  <span className={`block text-[10px] mt-0.5 ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                    Area level only — exact street detail is not shared.
+                  </span>
+                </span>
+              </div>
+            )}
+
             {selectedAlert.customNote && (
               <div className={`mt-3 p-3 rounded-2xl text-xs border ${
                 isDark ? 'bg-[#1F2128] border-white/10 text-white/90' : 'bg-gray-50 border-gray-200/80 text-gray-700'
@@ -382,7 +409,7 @@ export function AlertsScreen() {
                       href={modalPhoto}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="absolute bottom-2 right-2 px-2.5 py-1 bg-black/75 hover:bg-black text-white text-[10px] font-bold rounded-lg backdrop-blur-xs flex items-center gap-1 shadow-sm transition-colors"
+                      className="absolute bottom-2 right-2 px-2.5 py-1 bg-black/75 hover:bg-black text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow-sm transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <ImageIcon className="w-3 h-3" /> View Full

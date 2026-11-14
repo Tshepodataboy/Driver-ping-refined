@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS reports (
     issue_code VARCHAR(50) NOT NULL,
     issue_title VARCHAR(150) NOT NULL,
     custom_note TEXT,
+    -- Area-level incident location only (street detail is stripped before storage)
+    location VARCHAR(80),
     photo_url TEXT,
     reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status VARCHAR(30) NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'needs_review', 'resolved', 'disputed', 'flagged_abuse', 'dismissed')),
@@ -120,6 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_reports_plate ON reports(plate_normalized);
 CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_reporter ON reports(reporter_id);
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS location VARCHAR(80);
 
 -- 8. DELIVERY LOGS TABLE
 -- Ensures the rule: "Never say an alert was delivered unless the system actually recorded that it was"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { CATEGORIES } from '../constants/issues.js';
 import { ReportCategory, IssueOption } from '../types/index.js';
@@ -24,6 +24,15 @@ import {
 } from 'lucide-react';
 
 import { SA_PROVINCES, searchProvinces } from '../constants/provinces.js';
+import { toIncidentArea } from '../utils/incidentArea.js';
+import {
+  ReportDraft,
+  createDraftId,
+  deleteDraft,
+  draftHasProgress,
+  takePendingResumeDraft,
+  upsertDraft,
+} from '../utils/reportDrafts.js';
 import {
   ProvincialPlate,
   InteractiveProvincialPlateInput,
@@ -59,6 +68,7 @@ export function ReportScreen() {
     reportCategoryPreset,
     setReportCategoryPreset,
     setActiveTab,
+    activeTab,
     submitReport,
     setIsAuthModalOpen,
     theme,
@@ -66,100 +76,57 @@ export function ReportScreen() {
 
   const isDark = theme === 'dark';
 
-  // Wizard state initialized from sessionStorage draft if available
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_step');
-      if (saved) {
-        const num = parseInt(saved, 10);
-        if (num >= 1 && num <= 4) return num as 1 | 2 | 3 | 4;
-      }
-    }
-    return 1;
-  });
+  // Every visit starts a new report; unfinished attempts wait in the drafts list.
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Form state initialized from sessionStorage draft if available
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_prov');
-      if (saved) return saved;
-    }
-    return user?.defaultProvinceCode || 'GP';
-  });
-  const [plateNumber, setPlateNumber] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_plate_num');
-      if (saved !== null) return saved;
-    }
-    return '';
-  });
-  const [plate, setPlate] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_plate');
-      if (saved !== null) return saved;
-    }
-    return '';
-  });
-  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>(() => {
-    if (reportCategoryPreset) return reportCategoryPreset;
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_cat') as ReportCategory;
-      if (saved) return saved;
-    }
-    return 'vehicle_condition';
-  });
-  const [selectedIssueCode, setSelectedIssueCode] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_issue');
-      if (saved !== null) return saved;
-    }
-    return '';
-  });
-  const [customOtherText, setCustomOtherText] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_other');
-      if (saved !== null) return saved;
-    }
-    return '';
-  });
-  const [customNote, setCustomNote] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_note');
-      if (saved !== null) return saved;
-    }
-    return '';
-  });
-  const [photoPreview, setPhotoPreview] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('driver_ping_draft_photo');
-      if (saved) return saved;
-    }
-    return null;
-  });
+  // Fresh report state (saved drafts are resumed explicitly from the drafts list)
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>(user?.defaultProvinceCode || 'GP');
+  const [plateNumber, setPlateNumber] = useState('');
+  const [plate, setPlate] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>(reportCategoryPreset || 'vehicle_condition');
+  const [selectedIssueCode, setSelectedIssueCode] = useState('');
+  const [customOtherText, setCustomOtherText] = useState('');
+  const [customNote, setCustomNote] = useState('');
+  const [incidentArea, setIncidentArea] = useState('');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  // Identity of the draft this attempt writes to.
+  const draftIdRef = useRef<string>(createDraftId());
 
-  // Automatically save report draft into sessionStorage whenever state updates
+  // Auto-save this attempt as a draft. Sending the report (step 4) removes it.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('driver_ping_draft_step', String(step));
-      sessionStorage.setItem('driver_ping_draft_prov', selectedProvinceCode);
-      sessionStorage.setItem('driver_ping_draft_plate_num', plateNumber);
-      sessionStorage.setItem('driver_ping_draft_plate', plate);
-      sessionStorage.setItem('driver_ping_draft_cat', selectedCategory);
-      sessionStorage.setItem('driver_ping_draft_issue', selectedIssueCode);
-      sessionStorage.setItem('driver_ping_draft_other', customOtherText);
-      sessionStorage.setItem('driver_ping_draft_note', customNote);
-      if (photoPreview) {
-        try {
-          sessionStorage.setItem('driver_ping_draft_photo', photoPreview);
-        } catch {
-          // If storage quota exceeded for high-res photo, skip photo caching
-        }
-      } else {
-        sessionStorage.removeItem('driver_ping_draft_photo');
-      }
-    }
-  }, [step, selectedProvinceCode, plateNumber, plate, selectedCategory, selectedIssueCode, customOtherText, customNote, photoPreview]);
+    if (step === 4) return;
+    const draft: ReportDraft = {
+      id: draftIdRef.current,
+      step,
+      provinceCode: selectedProvinceCode,
+      plateNumber,
+      plate,
+      category: selectedCategory,
+      issueCode: selectedIssueCode,
+      customOtherText,
+      customNote,
+      incidentArea,
+      photo: photoPreview,
+      updatedAt: Date.now(),
+    };
+    if (!draftHasProgress(draft)) return;
+    upsertDraft(draft);
+  }, [step, selectedProvinceCode, plateNumber, plate, selectedCategory, selectedIssueCode, customOtherText, customNote, incidentArea, photoPreview]);
+
+  // Opening the Report tab always starts a new report.
+  useEffect(() => {
+    if (activeTab !== 'report') return;
+    startNewReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // A draft picked from the drafts list loads over the current attempt, even
+  // when the Report tab is already open.
+  useEffect(() => {
+    const pendingDraft = takePendingResumeDraft();
+    if (pendingDraft) resumeDraft(pendingDraft);
+  });
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -309,22 +276,8 @@ export function ReportScreen() {
     }
   }, [reportCategoryPreset]);
 
-  // Auto-populate default number plate & province from user settings if available
-  useEffect(() => {
-    if (user?.defaultPlate && !plateNumber) {
-      const defProv = user.defaultProvinceCode || 'WC';
-      const cleanReg = stripProvinceCodeFromInput(user.defaultPlate, defProv);
-      setPlateNumber(cleanReg);
-      if (!selectedProvinceCode) {
-        setSelectedProvinceCode(defProv);
-      }
-      setPlate(formatFullProvincialPlate(cleanReg, defProv));
-    } else if (user?.defaultProvinceCode && !selectedProvinceCode) {
-      setSelectedProvinceCode(user.defaultProvinceCode);
-      setPlateNumber('');
-      setPlate('');
-    }
-  }, [user]);
+  // A new report always starts blank: the saved default plate is not pre-filled
+  // so nothing is reported until the reporter enters a plate themselves.
 
   const selectedProvince = useMemo(() => {
     const code = selectedProvinceCode ? toAppProvinceCode(selectedProvinceCode) : 'GP';
@@ -377,18 +330,16 @@ export function ReportScreen() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          setPhotoPreview(compressedDataUrl);
-          // When image is captured, AI immediately scans plate: 1. Province code, 2. Auto-input unique number
-          scanPlateWithAi(compressedDataUrl);
+          setPhotoPreview(canvas.toDataURL('image/jpeg', 0.82));
         } else {
           setPhotoPreview(result);
-          scanPlateWithAi(result);
         }
+        // AI stays idle until the reporter presses the AI button.
+        setAiNotice(null);
       };
       img.onerror = () => {
         setPhotoPreview(result);
-        scanPlateWithAi(result);
+        setAiNotice(null);
       };
       img.src = result;
     };
@@ -422,6 +373,7 @@ export function ReportScreen() {
       issueCode: selectedIssueCode,
       issueTitle,
       customNote: customNote.trim() || undefined,
+      location: toIncidentArea(incidentArea) || undefined,
       photoUrl: photoPreview || undefined,
       idempotencyKey,
     });
@@ -443,21 +395,56 @@ export function ReportScreen() {
   };
 
   const clearDraftStorage = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('driver_ping_draft_step');
-      sessionStorage.removeItem('driver_ping_draft_prov');
-      sessionStorage.removeItem('driver_ping_draft_plate_num');
-      sessionStorage.removeItem('driver_ping_draft_plate');
-      sessionStorage.removeItem('driver_ping_draft_cat');
-      sessionStorage.removeItem('driver_ping_draft_issue');
-      sessionStorage.removeItem('driver_ping_draft_other');
-      sessionStorage.removeItem('driver_ping_draft_note');
-      sessionStorage.removeItem('driver_ping_draft_photo');
-    }
+    deleteDraft(draftIdRef.current);
+  };
+
+  // Load a saved draft into the wizard (used when resuming from the drafts list).
+  const resumeDraft = (draft: ReportDraft) => {
+    draftIdRef.current = draft.id;
+    setStep(draft.step);
+    setSelectedProvinceCode(draft.provinceCode || 'GP');
+    setPlateNumber(draft.plateNumber || '');
+    setPlate(draft.plate || draft.plateNumber || '');
+    setSelectedCategory(draft.category || 'vehicle_condition');
+    setSelectedIssueCode(draft.issueCode || '');
+    setCustomOtherText(draft.customOtherText || '');
+    setCustomNote(draft.customNote || '');
+    setIncidentArea(draft.incidentArea || '');
+    setPhotoPreview(draft.photo || null);
+    setIsPhotoOpen(false);
+    setScanResult(null);
+    setAiNotice(null);
+    setError(null);
+    setSubmissionResult(null);
+    setPlateType('standard');
+    setIdempotencyKey(`idemp_${Date.now()}_${Math.random()}`);
+  };
+
+  // Begin a brand-new report attempt with its own draft id.
+  const startNewReport = () => {
+    draftIdRef.current = createDraftId();
+    setStep(1);
+    setPlateNumber('');
+    setPlate('');
+    setSelectedProvinceCode(user?.defaultProvinceCode || 'GP');
+    setSelectedCategory(reportCategoryPreset || 'vehicle_condition');
+    setSelectedIssueCode('');
+    setCustomOtherText('');
+    setCustomNote('');
+    setIncidentArea('');
+    setPhotoPreview(null);
+    setIsPhotoOpen(false);
+    setScanResult(null);
+    setAiNotice(null);
+    setError(null);
+    setSubmissionResult(null);
+    setPlateType('standard');
+    setIdempotencyKey(`idemp_${Date.now()}_${Math.random()}`);
   };
 
   const handleStartFresh = () => {
     clearDraftStorage();
+    draftIdRef.current = createDraftId();
     setStep(1);
     setPlateNumber('');
     setPlate('');
@@ -465,6 +452,7 @@ export function ReportScreen() {
     setSelectedIssueCode('');
     setCustomOtherText('');
     setCustomNote('');
+    setIncidentArea('');
     setPhotoPreview(null);
     setIsPhotoOpen(false);
     setScanResult(null);
@@ -716,8 +704,8 @@ export function ReportScreen() {
         )}
 
         {error && (
-          <div className="mb-4 p-3.5 bg-rose-500/15 text-rose-700 dark:text-rose-200 rounded-2xl text-xs flex items-center gap-2 border border-rose-500/30">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+          <div className="mb-4 p-3.5 bg-rose-500/15 text-rose-700 rounded-2xl text-xs flex items-center gap-2 border border-rose-500/30">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
           </div>
         )}
@@ -761,7 +749,7 @@ export function ReportScreen() {
                 </div>
               </div>
               {photoPreview && (
-                <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full flex items-center gap-1">
+                <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-700 text-[10px] font-bold rounded-full flex items-center gap-1">
                   ✓ Photo Attached
                 </span>
               )}
@@ -827,7 +815,7 @@ export function ReportScreen() {
                     aria-modal="true"
                     aria-label="Vehicle photo"
                     onClick={() => setIsPhotoOpen(false)}
-                    className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+                    className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 animate-in fade-in"
                   >
                     <img
                       src={photoPreview}
@@ -847,8 +835,8 @@ export function ReportScreen() {
                 )}
 
                 {aiNotice && (
-                  <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
-                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[#941329] text-xs flex items-center gap-2 animate-in fade-in">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#b81d39]" />
                     <span className="font-medium text-[11px] leading-tight">{aiNotice}</span>
                   </div>
                 )}
@@ -916,7 +904,7 @@ export function ReportScreen() {
               <div className={`text-[11px] font-bold ${
                 isDark ? 'text-white/70' : 'text-gray-600'
               }`}>
-                Province: <span className="font-extrabold text-[#B81D39] dark:text-rose-400">{selectedProvince.code === 'WC' ? 'CA' : selectedProvince.code}</span>
+                Province: <span className="font-extrabold text-[#B81D39]">{selectedProvince.code === 'WC' ? 'CA' : selectedProvince.code}</span>
               </div>
             </div>
 
@@ -982,7 +970,7 @@ export function ReportScreen() {
 
               {user?.defaultPlate && plateNumber === user.defaultPlate && (
                 <div className="mt-1.5 flex items-center justify-between px-1 text-[10px]">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="text-emerald-600 font-bold flex items-center gap-1">
                     <span>✓ Pre-filled from Settings default plate</span>
                   </span>
                   <button
@@ -1003,7 +991,7 @@ export function ReportScreen() {
           <div className={`mt-5 p-3.5 rounded-2xl border flex items-start gap-3 ${
             isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
           }`}>
-            <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className={`text-xs leading-relaxed ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
               <strong className={`block font-semibold mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Anonymous to the recipient
@@ -1046,7 +1034,11 @@ export function ReportScreen() {
             isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
           }`}>
             <div className="w-24 shrink-0">
-              <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
+              {plate.trim().length >= 2 ? (
+                <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
+              ) : (
+                <div className={`h-8 rounded-md border border-dashed ${isDark ? 'border-white/20' : 'border-gray-300'}`} />
+              )}
             </div>
             <span className={`text-xs font-medium ${isDark ? 'text-white/70' : 'text-gray-600'}`}>Selected vehicle</span>
           </div>
@@ -1225,7 +1217,11 @@ export function ReportScreen() {
           }`}>
             <div className="flex items-center justify-between gap-3 text-xs">
               <div className="w-24 shrink-0">
-                <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
+                {plate.trim().length >= 2 ? (
+                  <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
+                ) : (
+                  <div className={`h-8 rounded-md border border-dashed ${isDark ? 'border-white/20' : 'border-gray-300'}`} />
+                )}
               </div>
               <span className={`font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {isOther ? customOtherText || 'Other issue' : currentIssue?.title}
@@ -1245,6 +1241,37 @@ export function ReportScreen() {
           </p>
 
           <div className="mt-4 space-y-4">
+            {/* Incident area: the reporter can say where it happened, but only
+                the area/suburb is ever stored and shared with the driver. */}
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${
+                isDark ? 'text-white/60' : 'text-gray-600'
+              }`}>
+                Incident area (Optional)
+              </label>
+              <input
+                type="text"
+                value={incidentArea}
+                onChange={(e) => setIncidentArea(e.target.value)}
+                placeholder="e.g. Pretoria CBD"
+                maxLength={80}
+                className={`w-full p-3.5 border rounded-2xl text-xs font-medium focus:outline-none transition-all shadow-inner ${
+                  isDark
+                    ? 'bg-[#131417] border-white/10 focus:bg-[#17181D] focus:border-white/30 text-white placeholder:text-white/35'
+                    : 'bg-gray-50 border-gray-200 focus:bg-white focus:border-[#941329] text-gray-900 placeholder:text-gray-400'
+                }`}
+              />
+              <p className={`text-[10px] mt-1 leading-snug ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                Area only. Street names, street numbers and landmarks are removed before the alert is sent.
+              </p>
+              {toIncidentArea(incidentArea) && (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-700">
+                  <Lock className="w-3 h-3" />
+                  Shared with the driver: {toIncidentArea(incidentArea)}
+                </p>
+              )}
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className={`block text-[11px] font-semibold uppercase tracking-wider ${
@@ -1256,13 +1283,13 @@ export function ReportScreen() {
                   type="button"
                   onClick={handleAiSuggestNote}
                   disabled={isGeneratingNote}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[11px] font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-[#941329] border border-rose-200 text-[11px] font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
                   title="Generate a polite, clear observation note with Gemini"
                 >
                   {isGeneratingNote ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
-                    <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                    <Sparkles className="w-3 h-3 text-[#b81d39]" />
                   )}
                   <span>{isGeneratingNote ? 'Drafting...' : 'AI Polish Note'}</span>
                 </button>
@@ -1285,8 +1312,8 @@ export function ReportScreen() {
             </div>
 
             {aiNotice && (
-              <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
-                <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[#941329] text-xs flex items-center gap-2 animate-in fade-in">
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#b81d39]" />
                 <span>{aiNotice}</span>
               </div>
             )}
@@ -1334,7 +1361,7 @@ export function ReportScreen() {
       {/* STEP 4: RECORDED CONFIRMATION */}
       {step === 4 && submissionResult && (
         <div className="text-center pt-2 animate-in fade-in duration-300">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
             <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
           </div>
 
@@ -1342,16 +1369,18 @@ export function ReportScreen() {
             Observation Recorded
           </h2>
 
-          <div className="my-4 max-w-[260px] mx-auto">
-            <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
-          </div>
+          {plate.trim().length >= 2 && (
+            <div className="my-4 max-w-[260px] mx-auto">
+              <ProvincialPlate provinceCode={selectedProvinceCode || 'WC'} plateText={plate} />
+            </div>
+          )}
 
           {/* Delivery status verification */}
           <div className={`mt-2 p-4 border rounded-2xl text-left text-xs leading-relaxed space-y-2 ${
             isDark ? 'bg-[#131417] border-white/10' : 'bg-gray-50 border-gray-200'
           }`}>
             <div className={`flex items-center gap-2 font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <Clock className="w-4 h-4 text-emerald-600" />
               <span>Delivery Status Verification:</span>
             </div>
             <p className={`${isDark ? 'text-white/70' : 'text-gray-600'}`}>
@@ -1379,6 +1408,7 @@ export function ReportScreen() {
           </div>
         </div>
       )}
+
       </div>
     </div>
   );

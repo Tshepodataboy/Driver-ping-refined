@@ -186,7 +186,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] text-gray-900 border border-black/5 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <SlidersHorizontal className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -205,7 +205,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] text-gray-900 border border-black/5 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <Users className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -230,7 +230,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] text-gray-900 border border-black/5 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <HelpCircle className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -249,7 +249,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] text-gray-900 border border-black/5 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <Info className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -268,7 +268,7 @@ export function ProfileScreen() {
             className="w-full flex items-center justify-between py-2.5 px-3 rounded-2xl hover:bg-gray-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] dark:bg-[#26282E] text-gray-900 dark:text-white border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-[#E8E6E2] text-gray-900 border border-black/5 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <Shield className="w-5 h-5 stroke-[2]" />
               </div>
               <span className="text-xs font-bold text-gray-900 group-hover:text-[#B81D39] transition-colors">
@@ -296,7 +296,7 @@ export function ProfileScreen() {
       {/* MODAL 1: USER PROFILE DETAILS & EDIT */}
       {/* ========================================================================= */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -380,7 +380,7 @@ export function ProfileScreen() {
       {/* MODAL 2: GENERAL SETTINGS & DEFAULT VEHICLE */}
       {/* ========================================================================= */}
       {showGeneralSettings && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -499,7 +499,7 @@ export function ProfileScreen() {
       {/* MODAL 3: MY CONTACTS / TRUSTED CONTACTS */}
       {/* ========================================================================= */}
       {showContactsModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -574,7 +574,7 @@ export function ProfileScreen() {
       {/* MODAL 5: FAQ */}
       {/* ========================================================================= */}
       {showFaqModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -608,7 +608,7 @@ export function ProfileScreen() {
       {/* MODAL 6: TERMS OF SERVICE */}
       {/* ========================================================================= */}
       {showTermsModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -645,7 +645,7 @@ export function ProfileScreen() {
       {/* MODAL 7: USER POLICY (PRIVACY BY DESIGN & POPIA) */}
       {/* ========================================================================= */}
       {showPolicyModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 crimson-card-shadow space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>

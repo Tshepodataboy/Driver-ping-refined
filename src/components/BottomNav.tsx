@@ -27,7 +27,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-3 pointer-events-none safe-area-pb">
       <div
-        className={`pointer-events-auto w-full max-w-[360px] backdrop-blur-2xl rounded-[26px] p-1.5 flex items-center justify-between gap-1 transition-all ${
+        className={`pointer-events-auto w-full max-w-[360px] rounded-[26px] p-1.5 flex items-center justify-between gap-1 transition-all ${
           isDark
             ? 'bg-[#121316]/95 border border-white/15 shadow-[0_14px_40px_rgba(0,0,0,0.8)] text-white'
             : 'bg-[#FAF8F6]/95 border border-white/80 shadow-[0_14px_40px_rgba(0,0,0,0.28)] text-gray-900'

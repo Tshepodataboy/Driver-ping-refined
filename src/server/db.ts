@@ -92,6 +92,7 @@ export interface DbReport {
   issueCode: string;
   issueTitle: string;
   customNote?: string;
+  location?: string; // Area-level only (e.g. "Pretoria CBD"), never the street
   photoUrl?: string;
   reporterId: string; // Strictly confidential; never returned in vehicle alert feeds
   status: 'received' | 'needs_review' | 'resolved' | 'disputed' | 'flagged_abuse' | 'dismissed';
@@ -1709,6 +1710,7 @@ class DatabaseService {
     issueCode: string;
     issueTitle: string;
     customNote?: string;
+    location?: string;
     photoUrl?: string;
     reporterId: string;
     idempotencyKey?: string;
@@ -1720,10 +1722,10 @@ class DatabaseService {
 
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `INSERT INTO reports (id, idempotency_key, plate_normalized, category, issue_code, issue_title, custom_note, photo_url, reporter_id, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'received', $10)
-         RETURNING id, idempotency_key, plate_normalized, category, issue_code, issue_title, custom_note, photo_url, reporter_id, status, created_at`,
-        [id, idemp, data.plateNormalized, data.category, data.issueCode, data.issueTitle.trim(), data.customNote?.trim() || '', data.photoUrl || '', data.reporterId, now]
+        `INSERT INTO reports (id, idempotency_key, plate_normalized, category, issue_code, issue_title, custom_note, location, photo_url, reporter_id, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'received', $11)
+         RETURNING id, idempotency_key, plate_normalized, category, issue_code, issue_title, custom_note, location, photo_url, reporter_id, status, created_at`,
+        [id, idemp, data.plateNormalized, data.category, data.issueCode, data.issueTitle.trim(), data.customNote?.trim() || '', data.location || '', data.photoUrl || '', data.reporterId, now]
       );
       return this.mapReportRow(res.rows[0]);
     }
@@ -1736,6 +1738,7 @@ class DatabaseService {
       issueCode: data.issueCode,
       issueTitle: data.issueTitle.trim(),
       customNote: data.customNote?.trim() || '',
+      location: data.location || '',
       photoUrl: data.photoUrl || '',
       reporterId: data.reporterId,
       status: 'received',
@@ -1762,6 +1765,7 @@ class DatabaseService {
             r.issue_code,
             r.issue_title,
             r.custom_note,
+            r.location,
             r.photo_url,
             r.status,
             r.recipient_action_note,
@@ -1806,6 +1810,7 @@ class DatabaseService {
         issueCode: r.issue_code,
         issueTitle: r.issue_title,
         customNote: r.custom_note || null,
+        location: r.location || null,
         photoUrl: r.photo_url || null,
         status: r.status,
         recipientActionNote: r.recipient_action_note || null,
@@ -1864,6 +1869,7 @@ class DatabaseService {
         issueCode: r.issueCode,
         issueTitle: r.issueTitle,
         customNote: r.customNote || null,
+        location: r.location || null,
         photoUrl: r.photoUrl || null,
         status: r.status,
         recipientActionNote: r.recipientActionNote || null,
@@ -2124,6 +2130,7 @@ class DatabaseService {
       issueCode: row.issue_code,
       issueTitle: row.issue_title,
       customNote: row.custom_note,
+      location: row.location || '',
       photoUrl: row.photo_url,
       reporterId: row.reporter_id,
       status: row.status,

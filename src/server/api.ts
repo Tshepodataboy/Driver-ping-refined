@@ -6,6 +6,7 @@ const scrypt = promisify(scryptCallback);
 import { db, DbUser } from './db.js';
 import { getGeminiClient, isGeminiConfigured, generateGeminiContentWithFallback, Type } from './gemini.js';
 import { normalizePlateScanResult } from './plateScan.js';
+import { toIncidentArea } from '../utils/incidentArea.js';
 
 export const apiRouter = express.Router();
 
@@ -774,7 +775,7 @@ apiRouter.delete('/vehicles/:id/trusted-contacts/:tcId', authenticateUser, async
 apiRouter.post('/reports', authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
 
-  const { plate, category, issueCode, issueTitle, customNote, photoUrl, idempotencyKey } =
+  const { plate, category, issueCode, issueTitle, customNote, location, photoUrl, idempotencyKey } =
     req.body;
 
   if (!plate || !category || !issueCode || !issueTitle) {
@@ -830,6 +831,8 @@ apiRouter.post('/reports', authenticateUser, async (req: AuthenticatedRequest, r
     issueCode,
     issueTitle: issueTitle.trim(),
     customNote: customNote ? customNote.trim().slice(0, 500) : '',
+    // Privacy: only the area/suburb is persisted, never the street-level place.
+    location: toIncidentArea(location),
     photoUrl: photoUrl || '',
     reporterId: user.id,
     idempotencyKey,

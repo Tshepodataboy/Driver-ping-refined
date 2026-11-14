@@ -357,7 +357,7 @@ export function VehiclesScreen() {
 
       {/* ADD VEHICLE MODAL */}
       {isAddVehicleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
           <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
             <button
               onClick={() => setIsAddVehicleOpen(false)}
@@ -563,7 +563,7 @@ export function VehiclesScreen() {
 
       {/* OWNERSHIP PROOF MODAL (Rule 4: Paid plan check + Admin review) */}
       {isOwnershipDocOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
           <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
             <button
               onClick={() => setIsOwnershipDocOpen(false)}
@@ -662,7 +662,7 @@ export function VehiclesScreen() {
 
       {/* ADD TRUSTED CONTACT MODAL (Rule 5: with consent) */}
       {isAddContactOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
           <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
             <button
               onClick={() => setIsAddContactOpen(false)}

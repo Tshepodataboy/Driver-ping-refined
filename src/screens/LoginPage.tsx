@@ -213,7 +213,7 @@ export function LoginPage() {
         {/* Top Branding Header */}
         <div className="text-center space-y-2 pt-2">
           {/* SA Country Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-widest text-amber-300 border border-white/10 shadow-lg">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/40 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber-300 border border-white/10 shadow-lg">
             <span>🇿🇦 SOUTH AFRICA ROAD SAFETY</span>
           </div>
 
@@ -693,7 +693,7 @@ export function LoginPage() {
 
       {/* Incorrect Credentials / Unregistered Email Pop Up Modal */}
       {showErrorPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
           <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-red-200/80 animate-in zoom-in-95 duration-200">
             <button
               type="button"

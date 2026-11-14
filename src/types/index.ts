@@ -81,6 +81,7 @@ export interface AlertItem {
   issueCode: string;
   issueTitle: string;
   customNote: string | null;
+  location?: string | null;
   photoUrl: string | null;
   status: AlertStatus;
   recipientActionNote: string | null;

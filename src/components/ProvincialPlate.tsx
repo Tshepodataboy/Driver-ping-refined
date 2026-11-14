@@ -257,7 +257,8 @@ export function ProvincialPlate({
   // Extract user registration portion (excluding province code)
   const isExplicitEmpty = plateText !== undefined && plateText.trim().length === 0;
   const userReg = plateText ? stripProvinceCodeFromInput(plateText, norm) : '';
-  const displayReg = userReg || (isExplicitEmpty ? '' : info.defaultRegistration);
+  // No plate number is drawn unless one was actually provided (never a sample plate).
+  const displayReg = userReg;
   const isGhost = isExplicitEmpty;
   const hasUserText = Boolean(userReg && userReg.trim().length > 0);
 
@@ -966,14 +967,21 @@ export function InteractiveProvincialPlateInput({
 
   return (
     <div className="space-y-2.5">
-      {/* Authentic Live Provincial Plate Preview with uneditable province code */}
-      <div className={`overflow-hidden p-1.5 shadow-md ${dark ? 'rounded-2xl bg-[#131417] border border-white/10' : 'rounded-none bg-white/70 border border-gray-200/80'}`}>
-        <ProvincialPlate
-          provinceCode={norm}
-          plateText={value}
-          className="w-full max-w-[340px] mx-auto transition-transform hover:scale-[1.01]"
-        />
-      </div>
+      {/* The plate preview only appears once a registration has been entered */}
+      {value.trim().length > 0 ? (
+        <div className={`overflow-hidden p-1.5 shadow-md ${dark ? 'rounded-2xl bg-[#131417] border border-white/10' : 'rounded-none bg-white/70 border border-gray-200/80'}`}>
+          <ProvincialPlate
+            provinceCode={norm}
+            plateText={value}
+            className="w-full max-w-[340px] mx-auto transition-transform hover:scale-[1.01]"
+          />
+        </div>
+      ) : (
+        <div className={`flex items-center justify-center gap-2 px-3 py-6 text-center text-[11px] font-semibold ${dark ? 'rounded-2xl bg-[#131417] border border-dashed border-white/15 text-white/40' : 'rounded-2xl bg-gray-50 border border-dashed border-gray-300 text-gray-400'}`}>
+          <Lock className="w-3.5 h-3.5 shrink-0" />
+          <span>No plate shown until a registration is entered</span>
+        </div>
+      )}
 
       {/* Input Field with Locked Province Code */}
       <div className="space-y-1 relative">

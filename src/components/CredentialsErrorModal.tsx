@@ -22,7 +22,7 @@ export function CredentialsErrorModal({
   const isWrongPassword = errorMessage?.toLowerCase().includes('password');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
       <div className="glass-modal text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-red-300/80 space-y-4 animate-in zoom-in-95 duration-200">
         {/* Close button */}
         <button
