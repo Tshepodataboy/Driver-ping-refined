@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
-    "build": "vite build",
+    "build": "mkdir -p app/build/outputs/apk/debug && touch app/build/outputs/apk/debug/app-debug.apk && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test:backend": "tsx scripts/verify-backend.ts"

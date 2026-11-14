@@ -44,7 +44,7 @@ export function BottomNav() {
               onClick={() => setActiveTab(item.key)}
               className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 cursor-pointer group relative ${
                 isActive
-                  ? 'nav-aurora-active text-white scale-[1.02]'
+                  ? 'bg-[#B81D39] text-white shadow-md shadow-[#B81D39]/30 scale-[1.02]'
                   : isDark
                   ? 'text-white/60 hover:text-white hover:bg-white/10'
                   : 'text-gray-500 hover:text-gray-950 hover:bg-gray-100/70'

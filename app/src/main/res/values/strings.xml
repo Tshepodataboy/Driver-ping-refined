@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Driver Ping</string>
+    <string name="app_tagline">Look out for each other</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_report">Report</string>
+    <string name="nav_vehicles">Vehicles</string>
+    <string name="nav_alerts">Alerts</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_admin">Admin</string>
+    <string name="nav_settings">Settings</string>
+</resources>

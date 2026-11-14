@@ -28,30 +28,10 @@ import {
   ProvincialPlate,
   InteractiveProvincialPlateInput,
   PROVINCE_DEFAULT_PLATES,
-  PROVINCE_NAMES,
   normalizeProvinceCode,
   formatFullProvincialPlate,
   stripProvinceCodeFromInput,
 } from '../components/ProvincialPlate.js';
-
-// Plate type options shown under the province pills. The AI scan selects the
-// matching option once it has classified the plate.
-const PLATE_TYPE_OPTIONS = [
-  { key: 'standard', label: 'Standard' },
-  { key: 'personalised', label: 'Personalised' },
-  { key: 'government', label: 'Government' },
-  { key: 'diplomatic', label: 'Diplomatic' },
-  { key: 'dealer', label: 'Dealer' },
-] as const;
-
-// The app's province list uses short codes (L, ZN) while the AI reports the
-// canonical ones (LP, KZN). Map them so a scan selects the right province pill.
-function toAppProvinceCode(code: string): string {
-  const norm = normalizeProvinceCode(code);
-  if (norm === 'LP') return 'L';
-  if (norm === 'KZN') return 'ZN';
-  return norm;
-}
 
 export function ReportScreen() {
   const {
@@ -136,7 +116,6 @@ export function ReportScreen() {
     }
     return null;
   });
-  const [isPhotoOpen, setIsPhotoOpen] = useState(false);
 
   // Automatically save report draft into sessionStorage whenever state updates
   useEffect(() => {
@@ -164,14 +143,6 @@ export function ReportScreen() {
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanningPlate, setIsScanningPlate] = useState(false);
-  const [plateType, setPlateType] = useState<string>('standard');
-  const [scanResult, setScanResult] = useState<{
-    provinceCode: string;
-    provinceName: string;
-    plateTypeLabel: string;
-    registration: string;
-    confidence: number | null;
-  } | null>(null);
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -189,7 +160,7 @@ export function ReportScreen() {
   const scanPlateWithAi = async (imageDataUrl: string) => {
     if (!imageDataUrl) return;
     setIsScanningPlate(true);
-    setAiNotice(null);
+    setAiNotice('AI scanning vehicle photo: identifying province & plate number...');
     try {
       const res = await fetch('/api/ai/extract-plate', {
         method: 'POST',
@@ -197,71 +168,39 @@ export function ReportScreen() {
         body: JSON.stringify({ photoBase64: imageDataUrl }),
       });
       const data = await res.json();
-
-      if (res.status === 503) {
-        setScanResult(null);
-        setAiNotice('AI scanning is not active yet — add a GEMINI_API_KEY to enable plate recognition.');
-        return;
-      }
-
       if (res.ok && data.data) {
-        const {
-          plateVisible,
-          provinceCode,
-          provinceName,
-          plateType: detectedPlateType,
-          plateTypeLabel,
-          uniqueRegistrationNumber,
-          fullPlate,
-          rawOcrText,
-          observedCondition,
-          confidence,
-        } = data.data;
+        const { rawOcrText, provinceCode, uniqueRegistrationNumber, plateText, fullPlate, observedCondition } = data.data;
 
-        const rawNum = uniqueRegistrationNumber || fullPlate || rawOcrText;
-        if (plateVisible === false || !rawNum) {
-          setScanResult(null);
-          setAiNotice(data.error || 'No legible plate in this photo — move closer and re-scan.');
-          return;
-        }
-
-        // Step 1: province mark and plate type are resolved before any digits are read.
+        // Step 1: Scan and identify provincial code first
         let resolvedProv = selectedProvinceCode || 'GP';
         if (provinceCode) {
-          resolvedProv = toAppProvinceCode(provinceCode);
+          resolvedProv = normalizeProvinceCode(provinceCode);
           setSelectedProvinceCode(resolvedProv);
         }
-        const resolvedProvName =
-          provinceName || PROVINCE_NAMES[normalizeProvinceCode(resolvedProv)] || resolvedProv;
 
-        // Pick up the detected plate type in the plate type options.
-        const matchedType = PLATE_TYPE_OPTIONS.find((option) => option.key === detectedPlateType);
-        if (matchedType) setPlateType(matchedType.key);
+        // Step 2: Auto-input unique plate number
+        const rawNum = uniqueRegistrationNumber || plateText || fullPlate || rawOcrText;
+        if (rawNum) {
+          const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
+          setPlateNumber(cleanUniqueReg);
+          setPlate(formatFullProvincialPlate(cleanUniqueReg, resolvedProv));
+        }
 
-        // Step 2: only the unique registration characters are written into the plate input.
-        const cleanUniqueReg = stripProvinceCodeFromInput(rawNum, resolvedProv);
-        setPlateNumber(cleanUniqueReg);
-        setPlate(formatFullProvincialPlate(cleanUniqueReg, resolvedProv));
-
+        // Optional observed hazard
         if (observedCondition && !customNote) {
           setCustomNote(observedCondition);
         }
 
-        setScanResult({
-          provinceCode: resolvedProv,
-          provinceName: resolvedProvName,
-          plateTypeLabel: matchedType?.label || plateTypeLabel || 'Plate',
-          registration: cleanUniqueReg,
-          confidence: typeof confidence === 'number' ? confidence : null,
-        });
-        setAiNotice('✓ Gemini read the plate — province identified, registration auto-filled.');
+        const ocrLabel = rawOcrText ? ` [OCR: "${rawOcrText}"]` : '';
+        setAiNotice(`✓ Gemini OCR Scan:${ocrLabel} • Province: ${resolvedProv === 'WC' ? 'CA (Western Cape)' : resolvedProv} • Auto-filled: ${rawNum ? stripProvinceCodeFromInput(rawNum, resolvedProv) : 'detected'}`);
+        setTimeout(() => setAiNotice(null), 5000);
       } else {
-        setScanResult(null);
         setAiNotice(data.error || 'Gemini could not detect a plate clearly.');
+        setTimeout(() => setAiNotice(null), 3000);
       }
     } catch {
-      setScanResult(null);
       setAiNotice('Failed to scan plate with Gemini.');
+      setTimeout(() => setAiNotice(null), 3000);
     } finally {
       setIsScanningPlate(false);
     }
@@ -327,9 +266,8 @@ export function ReportScreen() {
   }, [user]);
 
   const selectedProvince = useMemo(() => {
-    const code = selectedProvinceCode ? toAppProvinceCode(selectedProvinceCode) : 'GP';
     return (
-      SA_PROVINCES.find((p) => p.code === code) ||
+      SA_PROVINCES.find((p) => p.code === selectedProvinceCode) ||
       SA_PROVINCES.find((p) => p.code === 'GP') ||
       SA_PROVINCES[0]
     );
@@ -466,9 +404,6 @@ export function ReportScreen() {
     setCustomOtherText('');
     setCustomNote('');
     setPhotoPreview(null);
-    setIsPhotoOpen(false);
-    setScanResult(null);
-    setPlateType('standard');
     setSubmissionResult(null);
     setError(null);
     setReportCategoryPreset(null);
@@ -770,81 +705,33 @@ export function ReportScreen() {
             {photoPreview ? (
               <div className="space-y-2 relative z-10">
                 <div className="relative rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xs">
+                  <img
+                    src={photoPreview}
+                    alt="Vehicle preview"
+                    className="w-full h-44 object-cover"
+                  />
                   <button
                     type="button"
-                    onClick={() => setIsPhotoOpen(true)}
-                    aria-label="View photo full screen"
-                    className="block w-full cursor-zoom-in"
-                  >
-                    <img
-                      src={photoPreview}
-                      alt="Vehicle preview"
-                      className="w-full h-44 object-cover"
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoPreview(null);
-                      setIsPhotoOpen(false);
-                      setScanResult(null);
-                    }}
+                    onClick={() => setPhotoPreview(null)}
                     className="absolute top-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black text-white font-bold text-xs rounded-xl cursor-pointer transition-colors flex items-center gap-1 border border-white/10"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Remove Photo</span>
                   </button>
                 </div>
-
-                <div className="flex flex-col items-center gap-1.5 pt-1">
-                  <div className="relative grid place-items-center">
-                    <span className="ai-orb-halo" aria-hidden="true" />
-                    <button
-                      type="button"
-                      onClick={handleAiScanPlate}
-                      disabled={isScanningPlate}
-                      aria-label={isScanningPlate ? 'Scanning plate with AI' : 'Scan plate with AI'}
-                      title={isScanningPlate ? 'Scanning plate with AI…' : 'Scan plate with AI'}
-                      className={`ai-orb ${isScanningPlate ? 'ai-orb--busy' : ''}`}
-                    >
-                      {isScanningPlate ? (
-                        <Loader2 className="relative z-10 w-5 h-5 animate-spin" />
-                      ) : (
-                        <Sparkles className="relative z-10 w-5 h-5" strokeWidth={2.2} />
-                      )}
-                    </button>
-                  </div>
-                  {isScanningPlate && (
-                    <span className={`text-[10px] font-semibold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
-                      Reading province, then registration…
-                    </span>
+                <button
+                  type="button"
+                  onClick={handleAiScanPlate}
+                  disabled={isScanningPlate}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 text-white font-bold text-xs shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {isScanningPlate ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
                   )}
-                </div>
-
-                {isPhotoOpen && (
-                  <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Vehicle photo"
-                    onClick={() => setIsPhotoOpen(false)}
-                    className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
-                  >
-                    <img
-                      src={photoPreview}
-                      alt="Vehicle photo full view"
-                      onClick={(e) => e.stopPropagation()}
-                      className="max-h-[88vh] max-w-full object-contain rounded-xl shadow-2xl"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsPhotoOpen(false)}
-                      aria-label="Close photo"
-                      className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/20 cursor-pointer transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
+                  <span>{isScanningPlate ? 'AI Scanning Plate (Province & Number)...' : 'Re-Scan Plate with AI'}</span>
+                </button>
 
                 {aiNotice && (
                   <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2 animate-in fade-in">
@@ -922,7 +809,7 @@ export function ReportScreen() {
 
             {/* Horizontal Scrollable/Flex Province Pill Buttons [ GP ] [ CA ] [ ZN ] [ FS ] [ NW ] [ EC ] [ MP ] [ LP ] */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none mb-3">
-              {['GP', 'CA', 'ZN', 'FS', 'NW', 'EC', 'MP', 'LP', 'NC'].map((code) => {
+              {['GP', 'CA', 'ZN', 'FS', 'NW', 'EC', 'MP', 'LP'].map((code) => {
                 const actualCode = code === 'LP' ? 'L' : code === 'CA' ? 'WC' : code;
                 const isSelected = selectedProvince.code === actualCode || (code === 'CA' && selectedProvince.code === 'WC');
                 return (
@@ -941,30 +828,6 @@ export function ReportScreen() {
                 );
               })}
             </div>
-
-            {/* Identified plate readout: province mark + unique registration */}
-            {plateNumber.trim().length >= 2 && (
-              <div
-                className={`mt-3 rounded-xl border px-3 py-2 flex items-center justify-between gap-2 ${
-                  isDark ? 'bg-[#1E2027] border-white/10' : 'bg-white border-gray-200 shadow-2xs'
-                }`}
-              >
-                <div className="min-w-0">
-                  <span className={`block text-[9px] uppercase tracking-wider font-bold ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
-                    {scanResult ? 'Identified plate' : 'Plate preview'}
-                  </span>
-                  <span className={`block font-display font-black tracking-[0.08em] text-base leading-tight ${isDark ? 'text-white' : 'text-gray-950'}`}>
-                    {formatFullProvincialPlate(plateNumber, selectedProvince.code)}
-                  </span>
-                </div>
-                <span className={`shrink-0 text-[10px] font-bold text-right ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
-                  {selectedProvince.name}
-                  <span className="block text-[9px] font-semibold opacity-80">
-                    {selectedProvince.code === 'WC' ? 'CA' : selectedProvince.code}
-                  </span>
-                </span>
-              </div>
-            )}
 
             {/* Provincial Plate Preview & Registration Number Input */}
             <div>
