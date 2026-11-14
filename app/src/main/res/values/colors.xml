@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="crimson_dark">#6B0C1D</color>
+    <color name="crimson_primary">#941329</color>
+    <color name="crimson_light">#B81D39</color>
+    <color name="crimson_surface">#8C1226</color>
+    <color name="card_dark">#181A20</color>
+    <color name="card_light">#FAF8F6</color>
+    <color name="accent_amber">#F59E0B</color>
+    <color name="accent_emerald">#10B981</color>
+    <color name="accent_sky">#0EA5E9</color>
+</resources>
