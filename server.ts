@@ -36,6 +36,30 @@ async function startServer() {
     next(err);
   });
 
+  // Global API Error Handler for Express: Guarantees ANY unhandled error under /api strictly outputs JSON, never HTML
+  app.use('/api', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('❌ [API Express Error Handler]:', err?.stack || err?.message || err);
+    if (!res.headersSent) {
+      const status = typeof err?.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+      res.status(status).json({
+        error: err?.message || 'Internal Server Error',
+        status,
+      });
+    }
+  });
+
+  // Strict API 404 Handlers: Ensure unhandled /api and /api/* paths ALWAYS return JSON 404, never reaching Vite SPA index.html
+  app.use('/api', (_req: express.Request, res: express.Response) => {
+    if (!res.headersSent) {
+      res.status(404).json({ error: 'API endpoint not found' });
+    }
+  });
+  app.use('/api/*', (_req: express.Request, res: express.Response) => {
+    if (!res.headersSent) {
+      res.status(404).json({ error: 'API endpoint not found' });
+    }
+  });
+
   const isProd = process.env.NODE_ENV === 'production';
   const distPath = path.resolve(__dirname, 'dist');
   const distIndex = path.resolve(distPath, 'index.html');
@@ -52,14 +76,35 @@ async function startServer() {
       }
     });
   } else {
-    const vite = await createViteServer({
+    let viteMiddleware: express.RequestHandler | null = null;
+    const viteReady = createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+    }).then((vite) => {
+      viteMiddleware = vite.middlewares;
+      return vite;
     });
-    app.use(vite.middlewares);
+
+    viteReady.catch((err) => {
+      console.error('❌ [Vite Middleware Init Error]:', err);
+    });
+
+    app.use(async (req, res, next) => {
+      try {
+        if (!viteMiddleware) {
+          await viteReady;
+        }
+        if (viteMiddleware) {
+          return viteMiddleware(req, res, next);
+        }
+        next();
+      } catch (err) {
+        next(err);
+      }
+    });
   }
 
-  // Bind to port immediately so Cloud Run health check passes unconditionally
+  // Bind to port immediately so health checks and dev server probes pass without delay
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Driver Ping server listening on http://0.0.0.0:${PORT}`);
   });

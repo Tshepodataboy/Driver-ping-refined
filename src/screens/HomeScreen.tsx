@@ -1,51 +1,154 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext.js';
-import { ReportCategory, AlertItem } from '../types/index.js';
+import { ReportCategory } from '../types/index.js';
 import {
   AlertTriangle,
   Car,
-  ChevronRight,
-  Lightbulb,
   CheckCircle2,
-  Clock,
-  Shield,
   X,
-  ArrowRight,
-  ArrowLeft,
-  EyeOff,
   Siren,
   Phone,
   AlertCircle,
   HelpCircle,
   MapPin,
-  Compass,
-  Navigation,
-  Layers,
-  Radio,
+  SlidersHorizontal,
+  LocateFixed,
+  Loader2,
   Volume2,
   VolumeX,
   PhoneOff,
   Send,
   Check,
-  Sparkles,
   LifeBuoy,
   Mail,
+  ThumbsUp,
+  ArrowLeft,
+  ArrowRight,
+  Shield,
 } from 'lucide-react';
 import {
-  ProvincialPlate,
-  detectProvinceFromPlate,
   InteractiveProvincialPlateInput,
   formatFullProvincialPlate,
   stripProvinceCodeFromInput,
 } from '../components/ProvincialPlate.js';
+import { LiveRouteMap, MapHazardPin } from '../components/LiveRouteMap.js';
+import { SA_PROVINCES } from '../constants/provinces.js';
+import {
+  getClientVoterId,
+  getStoredHazardVotes,
+  saveStoredHazardVote,
+  replaceAllStoredHazardVotes,
+  EMPTY_HAZARD_VOTE,
+  HazardAnalysisStatus,
+  HazardVoteSelection,
+} from '../utils/hazardVotes.js';
+
+const METRO_SUBURBS: Record<string, string[]> = {
+  johannesburg: ['sandton', 'midrand', 'bedfordview', 'randburg', 'roodepoort', 'soweto', 'allandale', 'grayston', 'gilloolys'],
+  'cape town': ['century city', 'observatory', 'hospital bend', 'sable square', 'sea point', 'claremont', 'bellville'],
+  durban: ['westville', 'umhlanga', 'pinetown', 'la lucia', 'spaghetti'],
+};
+
+function matchesCommunityProvince(hazardProvince: string, selectedProvince: string): boolean {
+  if (!selectedProvince || selectedProvince === 'ALL') return true;
+  const h = hazardProvince.trim().toUpperCase();
+  const s = selectedProvince.trim().toUpperCase();
+  if (h === s) return true;
+  if ((s === 'ZN' || s === 'KZN') && (h === 'ZN' || h === 'KZN')) return true;
+  if ((s === 'L' || s === 'LP') && (h === 'L' || h === 'LP')) return true;
+  return false;
+}
+
+function matchesCommunityCity(hazard: MapHazardPin, selectedCity: string): boolean {
+  if (!selectedCity || selectedCity === 'ALL') return true;
+  const needle = selectedCity.trim().toLowerCase();
+  const haystack = `${hazard.area} ${hazard.title} ${hazard.description}`.toLowerCase();
+  if (haystack.includes(needle)) return true;
+  const suburbs = METRO_SUBURBS[needle];
+  if (suburbs && suburbs.some((sub) => haystack.includes(sub))) return true;
+  return false;
+}
+
+const SA_METRO_ALIASES: Record<string, string> = {
+  'city of johannesburg': 'Johannesburg',
+  'johannesburg metropolitan': 'Johannesburg',
+  'city of tshwane': 'Pretoria',
+  'tshwane': 'Pretoria',
+  'ekurhuleni': 'Benoni',
+  'city of cape town': 'Cape Town',
+  'ethekwini': 'Durban',
+  'nelson mandela bay': 'Gqeberha',
+  'buffalo city': 'East London',
+  'mangaung': 'Bloemfontein',
+  'msunduzi': 'Pietermaritzburg',
+  'polokwane local': 'Polokwane',
+  'mbombela local': 'Mbombela',
+  'emalahleni local': 'Emalahleni',
+  'rustenburg local': 'Rustenburg',
+  'sol plaatje': 'Kimberley',
+};
+
+function resolveSAProvinceCode(provinceText?: string, fullText?: string): string | null {
+  const combined = `${provinceText || ''} ${fullText || ''}`.toLowerCase();
+  for (const prov of SA_PROVINCES) {
+    if (provinceText) {
+      const pt = provinceText.toLowerCase();
+      if (pt.includes(prov.name.toLowerCase())) return prov.code;
+      if (prov.code === 'ZN' && (pt.includes('kwazulu') || pt.includes('natal'))) return 'ZN';
+      if (prov.code === 'L' && pt.includes('limpopo')) return 'L';
+    }
+  }
+  for (const prov of SA_PROVINCES) {
+    if (combined.includes(prov.name.toLowerCase())) return prov.code;
+    if (prov.code === 'ZN' && (combined.includes('kwazulu') || combined.includes('kzn'))) return 'ZN';
+  }
+  for (const prov of SA_PROVINCES) {
+    if (prov.cities.some((c) => combined.includes(c.toLowerCase()))) {
+      return prov.code;
+    }
+  }
+  return null;
+}
+
+function normalizeDetectedCity(rawCity: string, provinceCode: string, availableOptions: string[]): string {
+  const cleaned = rawCity.replace(/\s+(local|metropolitan)\s+municipality$/i, '').trim();
+  const lower = cleaned.toLowerCase();
+  const aliasMatch = Object.entries(SA_METRO_ALIASES).find(([key]) => lower.includes(key));
+  const candidate = aliasMatch ? aliasMatch[1] : cleaned;
+  const exact = availableOptions.find((opt) => opt.toLowerCase() === candidate.toLowerCase());
+  if (exact) return exact;
+  const partial = availableOptions.find(
+    (opt) => candidate.toLowerCase().includes(opt.toLowerCase()) || opt.toLowerCase().includes(candidate.toLowerCase())
+  );
+  if (partial) return partial;
+  const provCities = SA_PROVINCES.find((p) => p.code === provinceCode)?.cities || [];
+  const provExact = provCities.find((c) => c.toLowerCase() === candidate.toLowerCase());
+  return provExact || candidate;
+}
+
+function getHazardTilePreview(lat: number, lon: number, zoom = 14) {
+  const n = Math.pow(2, zoom);
+  const xExact = ((lon + 180) / 360) * n;
+  const latRad = (lat * Math.PI) / 180;
+  const yExact =
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+  const x = Math.floor(xExact);
+  const y = Math.floor(yExact);
+  const leftPct = Math.min(78, Math.max(22, Math.round((xExact - x) * 100)));
+  const topPct = Math.min(76, Math.max(24, Math.round((yExact - y) * 100)));
+  return {
+    tileUrl: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${zoom}/${y}/${x}`,
+    leftPct,
+    topPct,
+  };
+}
 
 export function HomeScreen() {
   const {
     user,
     setActiveTab,
     setReportCategoryPreset,
-    alerts,
-    takeAlertAction,
     submitReport,
     setIsAuthModalOpen,
     theme,
@@ -65,10 +168,27 @@ export function HomeScreen() {
   const [callReportSuccess, setCallReportSuccess] = useState(false);
   const [callReportFeedback, setCallReportFeedback] = useState<string | null>(null);
 
-  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
-  const [actionNote, setActionNote] = useState('');
-  const [actionType, setActionType] = useState<'resolve' | 'dispute' | 'flag_abuse' | null>(null);
-  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  // Community Hub State (live public map alerts: traffic, accidents, potholes)
+  const [communityHazards, setCommunityHazards] = useState<MapHazardPin[]>([]);
+  const [isLoadingCommunity, setIsLoadingCommunity] = useState(true);
+  const [communityFilter, setCommunityFilter] = useState<'all' | 'traffic' | 'accident' | 'pothole'>('all');
+  const [communityProvince, setCommunityProvince] = useState<string>('ALL');
+  const [communityCity, setCommunityCity] = useState<string>('ALL');
+  const [showCommunityFilterModal, setShowCommunityFilterModal] = useState(false);
+  const [draftProvince, setDraftProvince] = useState<string>('ALL');
+  const [draftCity, setDraftCity] = useState<string>('ALL');
+  const [draftCustomCity, setDraftCustomCity] = useState<string>('');
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationDetectStatus, setLocationDetectStatus] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [confirmingHazardId, setConfirmingHazardId] = useState<string | null>(null);
+  const [hazardVotes, setHazardVotes] = useState<Record<string, HazardVoteSelection>>(() =>
+    getStoredHazardVotes()
+  );
+  const [focusedMapHazard, setFocusedMapHazard] = useState<MapHazardPin | null>(null);
+
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -78,8 +198,23 @@ export function HomeScreen() {
   const [hoveredCategory, setHoveredCategory] = useState<'vehicle' | 'driver' | 'road' | 'sos' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'vehicle' | 'driver' | 'road' | 'sos' | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [isFlashing, setIsFlashing] = useState(false);
+  const [isHoldingReport, setIsHoldingReport] = useState(false);
+  const [isPoliceStrobe, setIsPoliceStrobe] = useState(false);
+  const [strobeCountdown, setStrobeCountdown] = useState(4);
+  const [strobeRect, setStrobeRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const quadrantTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const policeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const policeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const holdTriggeredRef = useRef(false);
+  const wasHoldAttemptRef = useRef(false);
+  const pressStartRef = useRef<number | null>(null);
+  const reportBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const activeCategory = pressedQuadrant || hoveredCategory || selectedCategory;
 
@@ -103,8 +238,54 @@ export function HomeScreen() {
       if (quadrantTimerRef.current) {
         clearTimeout(quadrantTimerRef.current);
       }
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+      if (policeTimerRef.current) {
+        clearTimeout(policeTimerRef.current);
+      }
+      if (policeIntervalRef.current) {
+        clearInterval(policeIntervalRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isPoliceStrobe) return;
+    const syncRect = () => {
+      const rect = reportBtnRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setStrobeRect({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    };
+    syncRect();
+    window.addEventListener('resize', syncRect);
+    window.addEventListener('scroll', syncRect, true);
+    return () => {
+      window.removeEventListener('resize', syncRect);
+      window.removeEventListener('scroll', syncRect, true);
+    };
+  }, [isPoliceStrobe]);
+
+  useEffect(() => {
+    if (!isPoliceStrobe) return;
+    const handleUnhold = () => {
+      cancelPoliceStrobe();
+    };
+    window.addEventListener('pointerup', handleUnhold);
+    window.addEventListener('pointercancel', handleUnhold);
+    window.addEventListener('blur', handleUnhold);
+    return () => {
+      window.removeEventListener('pointerup', handleUnhold);
+      window.removeEventListener('pointercancel', handleUnhold);
+      window.removeEventListener('blur', handleUnhold);
+    };
+  }, [isPoliceStrobe]);
 
   // Emergency in-call timer
   useEffect(() => {
@@ -218,17 +399,128 @@ export function HomeScreen() {
     setActiveTab('report');
   };
 
+  const cancelPoliceStrobe = () => {
+    if (policeIntervalRef.current) {
+      clearInterval(policeIntervalRef.current);
+      policeIntervalRef.current = null;
+    }
+    if (policeTimerRef.current) {
+      clearTimeout(policeTimerRef.current);
+      policeTimerRef.current = null;
+    }
+    pressStartRef.current = null;
+    wasHoldAttemptRef.current = true;
+    holdTriggeredRef.current = true;
+    setIsPoliceStrobe(false);
+    setIsReportOpen(false);
+    setStrobeCountdown(4);
+    setStrobeRect(null);
+    reportBtnRef.current?.blur();
+    setTimeout(() => {
+      holdTriggeredRef.current = false;
+      wasHoldAttemptRef.current = false;
+    }, 150);
+  };
+
+  const handleReportPointerDown = () => {
+    if (isPoliceStrobe) return;
+    pressStartRef.current = Date.now();
+    holdTriggeredRef.current = false;
+    wasHoldAttemptRef.current = false;
+    setIsHoldingReport(true);
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+    }
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      holdTriggeredRef.current = true;
+      wasHoldAttemptRef.current = true;
+      const rect = reportBtnRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setStrobeRect({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+      setIsHoldingReport(false);
+      setIsReportOpen(false);
+      setStrobeCountdown(4);
+      setIsPoliceStrobe(true);
+
+      if (policeIntervalRef.current) {
+        clearInterval(policeIntervalRef.current);
+      }
+      if (policeTimerRef.current) {
+        clearTimeout(policeTimerRef.current);
+        policeTimerRef.current = null;
+      }
+
+      let remaining = 4;
+      policeIntervalRef.current = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          if (policeIntervalRef.current) {
+            clearInterval(policeIntervalRef.current);
+            policeIntervalRef.current = null;
+          }
+          pressStartRef.current = null;
+          setStrobeCountdown(0);
+          setIsPoliceStrobe(false);
+          setIsReportOpen(false);
+          setStrobeRect(null);
+          reportBtnRef.current?.blur();
+          setTimeout(() => {
+            holdTriggeredRef.current = false;
+            wasHoldAttemptRef.current = false;
+          }, 150);
+          setShowEmergencyModal(true);
+          handleStartEmergencyCall();
+        } else {
+          setStrobeCountdown(remaining);
+        }
+      }, 1000);
+    }, 2000);
+  };
+
+  const cancelReportHold = (shouldBlur = false) => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    const elapsed = pressStartRef.current !== null ? Date.now() - pressStartRef.current : 0;
+    pressStartRef.current = null;
+    if (elapsed >= 250) {
+      wasHoldAttemptRef.current = true;
+    }
+    setIsHoldingReport(false);
+    if (shouldBlur || elapsed >= 250) {
+      setIsReportOpen(false);
+      reportBtnRef.current?.blur();
+    }
+  };
+
   const handleReportButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.focus();
+    const elapsed = pressStartRef.current !== null ? Date.now() - pressStartRef.current : 0;
+    pressStartRef.current = null;
+
+    if (holdTriggeredRef.current || wasHoldAttemptRef.current || elapsed >= 250) {
+      holdTriggeredRef.current = false;
+      wasHoldAttemptRef.current = false;
+      setIsReportOpen(false);
+      e.currentTarget.blur();
+      return;
+    }
+    if (isPoliceStrobe) {
+      e.currentTarget.blur();
+      return;
+    }
     if (isReportOpen) {
       setIsReportOpen(false);
       return;
     }
-    setIsFlashing(true);
     setIsReportOpen(true);
-    setTimeout(() => {
-      setIsFlashing(false);
-    }, 550);
   };
 
   const handleQuadrantClick = (target: 'vehicle' | 'driver' | 'road' | 'sos') => {
@@ -256,55 +548,217 @@ export function HomeScreen() {
     }, 500);
   };
 
-  const handleAlertClick = (alert: AlertItem) => {
-    setSelectedAlert(alert);
-    setActionType(null);
-    setActionNote('');
+  const fetchCommunityHazards = async () => {
+    try {
+      const voterId = encodeURIComponent(getClientVoterId());
+      const res = await fetch(`/api/map/hazards?province=ALL&kind=all&voterId=${voterId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const rows: MapHazardPin[] = Array.isArray(data?.hazards) ? data.hazards : [];
+        setCommunityHazards(
+          rows.filter((h) => h.kind === 'traffic' || h.kind === 'accident' || h.kind === 'pothole')
+        );
+        if (data?.userVotes && typeof data.userVotes === 'object') {
+          setHazardVotes(replaceAllStoredHazardVotes(data.userVotes));
+        } else {
+          setHazardVotes(getStoredHazardVotes());
+        }
+      }
+    } catch {
+      // Ignore transient network errors
+    } finally {
+      setIsLoadingCommunity(false);
+    }
   };
 
-  const submitAlertAction = async (type: 'resolve' | 'dismiss' | 'dispute' | 'flag_abuse') => {
-    if (!selectedAlert) return;
-    setIsSubmittingAction(true);
-    await takeAlertAction(selectedAlert.id, type, actionNote);
-    setIsSubmittingAction(false);
-    setSelectedAlert(null);
+  useEffect(() => {
+    void fetchCommunityHazards();
+  }, []);
+
+  const handleVoteHazardAnalysis = async (
+    e: React.MouseEvent,
+    id: string,
+    status: HazardAnalysisStatus
+  ) => {
+    e.stopPropagation();
+    setConfirmingHazardId(id);
+    try {
+      const res = await fetch(`/api/map/hazards/${id}/analysis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, voterId: getClientVoterId() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.hazard) {
+        setCommunityHazards((prev) => prev.map((h) => (h.id === id ? data.hazard : h)));
+        if (data?.userVote) {
+          setHazardVotes(saveStoredHazardVote(id, data.userVote));
+        }
+      }
+    } finally {
+      setConfirmingHazardId(null);
+    }
+  };
+
+  const handleOpenCommunityHazardOnMap = (hazard: MapHazardPin) => {
+    setFocusedMapHazard(hazard);
+    setShowMapModal(true);
+  };
+
+  const openCommunityFilterModal = () => {
+    setDraftProvince(communityProvince);
+    const provCities = getProvinceCityOptions(communityProvince);
+    if (communityCity !== 'ALL' && !provCities.includes(communityCity)) {
+      setDraftCity('__other__');
+      setDraftCustomCity(communityCity);
+    } else {
+      setDraftCity(communityCity);
+      setDraftCustomCity('');
+    }
+    setLocationDetectStatus(null);
+    setShowCommunityFilterModal(true);
+  };
+
+  const getProvinceCityOptions = (provinceCode: string): string[] => {
+    if (!provinceCode || provinceCode === 'ALL') return [];
+    const base = SA_PROVINCES.find((p) => p.code === provinceCode)?.cities || [];
+    const fromHazards = communityHazards
+      .filter((h) => matchesCommunityProvince(h.province, provinceCode))
+      .map((h) => h.area.split(',')[0].split('/')[0].trim())
+      .filter(Boolean);
+    return Array.from(new Set([...base, ...fromHazards]));
+  };
+
+  const handleDetectLocationForFilter = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationDetectStatus({
+        type: 'error',
+        text: 'Location services are not supported by this browser. Pick province and city below.',
+      });
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationDetectStatus(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const res = await fetch(`/api/map/reverse?lat=${lat}&lon=${lon}`);
+          const data = res.ok ? await res.json() : null;
+          const place = data?.place;
+
+          const matchedProvCode = resolveSAProvinceCode(
+            place?.provinceName,
+            `${place?.label || ''} ${place?.shortLabel || ''}`
+          );
+
+          if (!matchedProvCode) {
+            setLocationDetectStatus({
+              type: 'error',
+              text: place?.shortLabel
+                ? `Detected "${place.shortLabel}", which is outside South Africa's 9 provinces. Please select manually.`
+                : 'Could not match your coordinates to a South African province. Please select manually.',
+            });
+            setIsDetectingLocation(false);
+            return;
+          }
+
+          const options = getProvinceCityOptions(matchedProvCode);
+          const rawCity =
+            place?.cityName ||
+            (typeof place?.shortLabel === 'string' ? place.shortLabel.split(',')[0].trim() : '');
+
+          setDraftProvince(matchedProvCode);
+
+          if (rawCity) {
+            const normalizedCity = normalizeDetectedCity(rawCity, matchedProvCode, options);
+            if (options.includes(normalizedCity)) {
+              setDraftCity(normalizedCity);
+              setDraftCustomCity('');
+            } else {
+              setDraftCity('__other__');
+              setDraftCustomCity(normalizedCity);
+            }
+            const provName = SA_PROVINCES.find((p) => p.code === matchedProvCode)?.name || matchedProvCode;
+            setLocationDetectStatus({
+              type: 'success',
+              text: `Detected ${normalizedCity}, ${provName} (${matchedProvCode}).`,
+            });
+          } else {
+            setDraftCity('ALL');
+            setDraftCustomCity('');
+            const provName = SA_PROVINCES.find((p) => p.code === matchedProvCode)?.name || matchedProvCode;
+            setLocationDetectStatus({
+              type: 'success',
+              text: `Detected ${provName} (${matchedProvCode}).`,
+            });
+          }
+        } catch {
+          setLocationDetectStatus({
+            type: 'error',
+            text: 'Unable to look up your city from GPS right now. Please select manually.',
+          });
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      (err) => {
+        setIsDetectingLocation(false);
+        const denied = err.code === 1;
+        setLocationDetectStatus({
+          type: 'error',
+          text: denied
+            ? 'Location access denied. Allow location permission or choose province & city below.'
+            : 'Could not read your GPS position. Please pick province & city below.',
+        });
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  };
+
+  const handleApplyCommunityFilter = (e: React.FormEvent) => {
+    e.preventDefault();
+    const resolvedCity =
+      draftProvince === 'ALL'
+        ? 'ALL'
+        : draftCity === '__other__'
+          ? draftCustomCity.trim() || 'ALL'
+          : draftCity || 'ALL';
+    setCommunityProvince(draftProvince);
+    setCommunityCity(resolvedCity);
+    setShowCommunityFilterModal(false);
+  };
+
+  const handleResetCommunityFilter = () => {
+    setCommunityProvince('ALL');
+    setCommunityCity('ALL');
+    setDraftProvince('ALL');
+    setDraftCity('ALL');
+    setDraftCustomCity('');
+    setLocationDetectStatus(null);
+    setShowCommunityFilterModal(false);
   };
 
   // Format relative time helper
   const getRelativeTime = (isoString: string) => {
     const diff = Date.now() - new Date(isoString).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins} min ago`;
+    const mins = Math.max(1, Math.floor(diff / 60000));
+    if (mins < 2) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} hr ago`;
-    return `${Math.floor(hours / 24)} d ago`;
-  };
-
-  // Mask plate for recent alerts preview (e.g. "Vehicle ending • 482")
-  const getMaskedPlate = (plateDisplay: string) => {
-    const digitsMatch = plateDisplay.match(/\d{3}/g);
-    if (digitsMatch && digitsMatch.length > 0) {
-      const lastDigits = digitsMatch[digitsMatch.length - 1];
-      return `Vehicle ending • ${lastDigits}`;
-    }
-    const clean = plateDisplay.replace(/[^A-Z0-9]/gi, '');
-    const ending = clean.slice(-3);
-    return `Vehicle ending • ${ending}`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   };
 
   return (
     <div className="pb-28 pt-3 px-3 max-w-[420px] mx-auto text-white">
-      {/* 1. PRIMARY FLOATING HERO CARD - Red Aurora Mesh Effect (matching user reference image) */}
-      <div className="report-aurora-card rounded-[34px] px-4.5 pt-4 pb-3.5 text-white relative overflow-hidden text-center shadow-2xl">
-        {/* Atmospheric Blurred Aurora Mesh Light Blooms (matching reference image fluid blur effect in red) */}
-        <div className="absolute -top-14 -right-10 w-56 h-56 rounded-full bg-[#FB7185]/45 blur-[50px] pointer-events-none" />
-        <div className="absolute top-1/4 -left-12 w-64 h-64 rounded-full bg-[#E11D48]/50 blur-[60px] pointer-events-none" />
-        <div className="absolute -bottom-10 right-4 w-52 h-52 rounded-full bg-[#9F1239]/70 blur-[45px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 h-44 rounded-full bg-[#BE123C]/35 blur-[45px] pointer-events-none" />
-
+      {/* 1. PRIMARY FLOATING HERO CARD - Clean Red Aurora Mesh */}
+      <div className={`report-aurora-card rounded-[34px] px-4.5 pt-4 pb-3 text-white relative overflow-hidden text-center shadow-2xl ${isPoliceStrobe ? 'is-police-strobe' : ''}`}>
         {/* Top Header Row */}
-        <div className="relative z-10 mb-2.5 px-1 text-center flex flex-col items-center justify-center">
+        <div className="relative z-10 mb-1.5 px-1 text-center flex flex-col items-center justify-center">
           <span className="text-[10px] font-black uppercase tracking-widest text-rose-200/80 block leading-tight">
             LICENSE PLATE MESSAGING
           </span>
@@ -322,17 +776,39 @@ export function HomeScreen() {
         </div>
 
         {/* Center Circular GO / Social Button */}
-        <div className="my-1 relative flex flex-col items-center justify-center z-10">
-          <div className={`wrapper ${isReportOpen ? 'is-open' : ''}`} tabIndex={-1}>
+        <div className="relative flex flex-col items-center justify-center z-10">
+          <div
+            className={`wrapper ${isReportOpen ? 'is-open' : ''} ${isHoldingReport ? 'is-holding' : ''} ${isPoliceStrobe ? 'is-police-strobe' : ''}`}
+            tabIndex={-1}
+          >
             <div className="stage">
               <div className="go-wrap">
                 <button
-                    className={`btn group focus:outline-none select-none ${isFlashing ? 'is-flashing' : ''}`}
+                    ref={reportBtnRef}
+                    className={`btn group focus:outline-none select-none touch-none ${isHoldingReport ? 'is-holding' : ''} ${isPoliceStrobe ? 'is-police-strobe' : ''}`}
                     onContextMenu={(e) => e.preventDefault()}
+                    onPointerDown={handleReportPointerDown}
+                    onPointerUp={() => {
+                      cancelReportHold(holdTriggeredRef.current);
+                      if (isPoliceStrobe) {
+                        cancelPoliceStrobe();
+                      }
+                    }}
+                    onPointerLeave={() => cancelReportHold(!isPoliceStrobe)}
+                    onPointerCancel={() => {
+                      cancelReportHold(true);
+                      if (isPoliceStrobe) {
+                        cancelPoliceStrobe();
+                      }
+                    }}
                     onClick={handleReportButtonClick}
-                    onDoubleClick={() => handleStartReport()}
-                    aria-label="Report vehicle. Tap to open the reporting options"
-                    title="Click to select issue, double click to report"
+                    onDoubleClick={() => {
+                      if (!isPoliceStrobe && !holdTriggeredRef.current && !wasHoldAttemptRef.current) {
+                        handleStartReport();
+                      }
+                    }}
+                    aria-label="Report vehicle. Tap to open reporting options or press and hold 2 seconds for police light effect"
+                    title="Tap to select issue, or press and hold 2s for police car light effect"
                   >
                     REPORT
                   </button>
@@ -424,7 +900,7 @@ export function HomeScreen() {
         </div>
 
         {/* Bottom Bar - MAP Icon Button */}
-        <div className="flex items-center justify-center relative z-10 mt-2 pt-2 border-t border-white/15 px-1">
+        <div className="flex items-center justify-center relative z-10 pt-0.5 px-1">
           <button
             type="button"
             onClick={() => setShowMapModal(true)}
@@ -455,349 +931,340 @@ export function HomeScreen() {
         </button>
       </div>
 
-      {/* 2. RECENT ALERTS (Clean white rounded cards with crimson accents) */}
+      {/* 2. COMMUNITY HUB (Publicly shared map road alerts: traffic, accidents, potholes) */}
       <div className="mt-5">
-        <div className="flex items-center justify-between px-2 mb-2.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-white/80">
-            Recent alerts
-          </span>
+        <div className="flex items-center justify-between px-1 mb-2.5">
+          <div>
+            <h2 className="text-lg font-black font-display tracking-tight text-white leading-tight">
+              Community Hub
+            </h2>
+            <p className="text-[11px] text-white/75 font-medium">
+              Public traffic, accidents & potholes from the map
+            </p>
+          </div>
           <button
-            onClick={() => setActiveTab('alerts')}
-            className="text-[11px] font-semibold text-white/80 hover:text-white flex items-center gap-1"
+            type="button"
+            onClick={openCommunityFilterModal}
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition-colors cursor-pointer shrink-0 border ${
+              communityProvince !== 'ALL' || communityCity !== 'ALL'
+                ? 'bg-white text-gray-950 border-white shadow-sm'
+                : 'text-white/90 hover:text-white bg-white/10 hover:bg-white/20 border-white/15'
+            }`}
+            title="Filter community alerts by province and city"
           >
-            <span>View all</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>
+              {communityCity !== 'ALL'
+                ? `${communityCity}, ${communityProvince}`
+                : communityProvince !== 'ALL'
+                  ? `Filter · ${communityProvince}`
+                  : 'Filter'}
+            </span>
           </button>
         </div>
 
+        {/* Filter Chips for Community Road Alerts */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 px-1 no-scrollbar">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'traffic', label: 'Traffic' },
+            { id: 'accident', label: 'Accidents' },
+            { id: 'pothole', label: 'Potholes' },
+          ].map((tab) => {
+            const active = communityFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() =>
+                  setCommunityFilter(tab.id as 'all' | 'traffic' | 'accident' | 'pothole')
+                }
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer shrink-0 border ${
+                  active
+                    ? 'bg-white text-gray-950 border-white shadow-sm'
+                    : 'bg-white/10 text-white/85 border-white/15 hover:bg-white/20'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+          {(communityProvince !== 'ALL' || communityCity !== 'ALL') && (
+            <button
+              type="button"
+              onClick={handleResetCommunityFilter}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/15 hover:bg-white/25 text-white border border-white/20 cursor-pointer shrink-0 transition-colors"
+              title="Clear province and city filter"
+            >
+              <span>Clear location</span>
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
         {(() => {
-          // Display top 4 most recent alerts for driver's vehicles (unread prioritized first)
-          const displayAlerts = [...alerts].sort((a, b) => {
-            const isUnreadA = a.status === 'received' || a.status === 'needs_review' ? 1 : 0;
-            const isUnreadB = b.status === 'received' || b.status === 'needs_review' ? 1 : 0;
-            if (isUnreadA !== isUnreadB) return isUnreadB - isUnreadA;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          const filteredHazards = communityHazards.filter((h) => {
+            if (communityFilter !== 'all' && h.kind !== communityFilter) return false;
+            if (!matchesCommunityProvince(h.province, communityProvince)) return false;
+            if (!matchesCommunityCity(h, communityCity)) return false;
+            return true;
           });
 
-          if (displayAlerts.length === 0) {
+          if (isLoadingCommunity) {
             return (
-              <div className={`rounded-[26px] p-5 text-center border transition-colors ${
-                isDark ? 'bg-[#14161B] border-white/10 text-white' : 'glass-card text-gray-900 border-white/60'
-              }`}>
+              <div className="bg-white rounded-[24px] p-5 text-center text-gray-900 shadow-lg border border-white/80">
+                <p className="text-xs font-bold text-gray-600">Loading community road alerts...</p>
+              </div>
+            );
+          }
+
+          if (filteredHazards.length === 0) {
+            const hasLocationFilter = communityProvince !== 'ALL' || communityCity !== 'ALL';
+            return (
+              <div className="bg-white rounded-[24px] p-5 text-center text-gray-900 shadow-lg border border-white/80">
                 <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
-                <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>All clear</p>
-                <p className={`text-[10px] mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
-                  No observations or alerts reported for your registered vehicles.
+                <p className="text-xs font-bold text-gray-950">
+                  {hasLocationFilter
+                    ? `No road alerts in ${
+                        communityCity !== 'ALL'
+                          ? `${communityCity}, ${communityProvince}`
+                          : SA_PROVINCES.find((p) => p.code === communityProvince)?.name || communityProvince
+                      } yet`
+                    : 'No public road alerts here yet'}
                 </p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {hasLocationFilter
+                    ? 'Try choosing another city, clearing the location filter, or pin an update on the map.'
+                    : 'Open the map to share a traffic, accident, or pothole update with drivers.'}
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                  {hasLocationFilter && (
+                    <button
+                      type="button"
+                      onClick={handleResetCommunityFilter}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Clear Filter</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFocusedMapHazard(null);
+                      setShowMapModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#941329] text-white text-xs font-bold cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Open Map</span>
+                  </button>
+                </div>
               </div>
             );
           }
 
           return (
-            <div className="space-y-2.5">
-              {displayAlerts.slice(0, 4).map((alert) => {
-                const getBadge = (cat: string) => {
-                  switch (cat) {
-                    case 'vehicle_condition':
-                      return {
-                        bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-50 text-[#941329]',
-                        icon: <Car className="w-4 h-4 stroke-[2.2]" />,
-                      };
-                    case 'driver_behaviour':
-                      return {
-                        bg: isDark ? 'bg-blue-950/40 text-blue-300 border border-blue-800/40' : 'bg-blue-50 text-[#1e40af]',
-                        icon: (
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <circle cx="12" cy="12" r="3" />
-                            <line x1="12" y1="2" x2="12" y2="9" />
-                            <line x1="2" y1="12" x2="9" y2="12" />
-                            <line x1="15" y1="12" x2="22" y2="12" />
-                          </svg>
-                        ),
-                      };
-                    case 'road_violation':
-                      return {
-                        bg: isDark ? 'bg-amber-950/40 text-amber-300 border border-amber-800/40' : 'bg-amber-50 text-[#d97706]',
-                        icon: (
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <line x1="4" y1="2" x2="4" y2="22" />
-                            <line x1="20" y1="2" x2="20" y2="22" />
-                            <line x1="12" y1="2" x2="12" y2="22" strokeDasharray="3 3" />
-                          </svg>
-                        ),
-                      };
-                    case 'emergency':
-                      return {
-                        bg: isDark ? 'bg-red-950/50 text-red-300 border border-red-800/50' : 'bg-red-50 text-[#dc2626]',
-                        icon: <Siren className="w-4 h-4 stroke-[2.2]" />,
-                      };
-                    default:
-                      return {
-                        bg: isDark ? 'bg-rose-950/40 text-rose-300 border border-rose-800/40' : 'bg-red-50 text-[#941329]',
-                        icon: <Car className="w-4 h-4 stroke-[2.2]" />,
-                      };
-                  }
-                };
-                const badge = getBadge(alert.category);
+            <div className="space-y-3">
+              {filteredHazards.slice(0, 6).map((hazard) => {
+                const preview = getHazardTilePreview(hazard.lat, hazard.lon, 14);
+                const kindMeta =
+                  hazard.kind === 'accident'
+                    ? {
+                        label: 'Accident',
+                        icon: <Siren className="w-3 h-3 text-[#941329]" />,
+                        pinIcon: <Siren className="w-3.5 h-3.5 text-[#F87171] rotate-45" />,
+                      }
+                    : hazard.kind === 'pothole'
+                      ? {
+                          label: 'Pothole',
+                          icon: <AlertTriangle className="w-3 h-3 text-amber-600" />,
+                          pinIcon: <AlertTriangle className="w-3.5 h-3.5 text-[#FBBF24] rotate-45" />,
+                        }
+                      : hazard.kind === 'alert'
+                        ? {
+                            label: 'Alert',
+                            icon: <AlertCircle className="w-3 h-3 text-purple-600" />,
+                            pinIcon: <AlertCircle className="w-3.5 h-3.5 text-[#C084FC] rotate-45" />,
+                          }
+                        : {
+                            label: 'Traffic',
+                            icon: <Car className="w-3 h-3 text-blue-600" />,
+                            pinIcon: <Car className="w-3.5 h-3.5 text-[#60A5FA] rotate-45" />,
+                          };
+
+                const unsolvedCount = hazard.confirmations ?? 0;
+                const beingSolvedCount = hazard.beingSolvedCount ?? 0;
+                const falseReportCount = hazard.falseReportCount ?? 0;
+                const totalAnalysis = unsolvedCount + beingSolvedCount + falseReportCount;
+                const safeTotal = Math.max(1, totalAnalysis);
+                const myVote = hazardVotes[hazard.id] || EMPTY_HAZARD_VOTE;
+                const activeVoteLabels = [
+                  myVote.unsolved ? 'True & Unsolved' : null,
+                  myVote.false_report ? 'False Report' : null,
+                  myVote.being_solved ? 'True & Solved' : null,
+                ].filter(Boolean);
 
                 return (
                   <div
-                    key={alert.id}
-                    onClick={() => handleAlertClick(alert)}
-                    className={`w-full p-3.5 rounded-2xl shadow-md border flex flex-col gap-2 text-left transition-all active:scale-[0.99] cursor-pointer group ${
-                      isDark
-                        ? 'bg-[#14161B] hover:bg-[#1C1E24] text-white border-white/10'
-                        : 'glass-card hover:bg-gray-50/90 text-gray-950 border-gray-200/50'
-                    }`}
+                    key={hazard.id}
+                    className="w-full bg-white rounded-[24px] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] border border-white/90 text-gray-950 transition-all"
                   >
-                    <div className="flex items-center justify-between gap-3 w-full">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-full ${badge.bg} flex items-center justify-center shrink-0 shadow-xs border ${
-                          isDark ? 'border-white/10' : 'border-gray-100'
-                        }`}>
-                          {badge.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className={`text-xs font-black font-display truncate ${
-                            isDark ? 'text-white group-hover:text-rose-400' : 'text-gray-950 group-hover:text-[#941329]'
-                          }`}>
-                            {alert.issueTitle}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="w-24 shrink-0 drop-shadow-xs">
-                              <ProvincialPlate
-                                provinceCode={detectProvinceFromPlate(alert.plateDisplay)}
-                                plateText={alert.plateDisplay}
-                              />
-                            </div>
-                            <span className={`text-[10px] font-bold ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
-                              {getRelativeTime(alert.createdAt)}
+                    {/* Top Incident Summary + Map Preview (click to inspect on full map) */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleOpenCommunityHazardOnMap(hazard)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleOpenCommunityHazardOnMap(hazard);
+                        }
+                      }}
+                      className="flex items-stretch gap-3 cursor-pointer group"
+                    >
+                      {/* Left Metadata & Copy Column */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                              {hazard.province} · {getRelativeTime(hazard.createdAt)}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-[10px] font-semibold">
+                              {kindMeta.icon}
+                              <span>{kindMeta.label}</span>
                             </span>
                           </div>
+
+                          <h3 className="text-[13px] font-black font-display text-gray-950 leading-snug mt-1.5 line-clamp-2 group-hover:text-[#941329] transition-colors">
+                            {hazard.title}
+                          </h3>
+
+                          <p className="text-[11px] text-gray-500 italic truncate mt-0.5">
+                            {hazard.area} — {hazard.description}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {alert.status === 'received' && (
-                          <span className="text-[9px] font-black text-white bg-[#941329] px-2.5 py-0.5 rounded-full shadow-xs border border-red-500/30">
-                            New
-                          </span>
-                        )}
-                        {alert.status === 'needs_review' && (
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border ${
-                            isDark ? 'text-amber-300 bg-amber-950/60 border-amber-800/50' : 'text-amber-900 bg-amber-100 border-amber-300'
-                          }`}>
-                            Review
-                          </span>
-                        )}
-                        {alert.status === 'resolved' && (
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border ${
-                            isDark ? 'text-emerald-300 bg-emerald-950/60 border-emerald-800/50' : 'text-emerald-800 bg-emerald-100 border-emerald-300'
-                          }`}>
-                            Resolved
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            takeAlertAction(alert.id, 'resolve', 'Dismissed');
-                          }}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors cursor-pointer border ${
-                            isDark
-                              ? 'bg-[#22242B] hover:bg-rose-950/40 text-white/60 hover:text-rose-400 border-white/10'
-                              : 'bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-[#941329] border-gray-200'
-                          }`}
-                          title="Dismiss alert"
-                          aria-label="Dismiss"
+                      {/* Right Square Map Tile Thumbnail */}
+                      <div className="w-[84px] h-[84px] sm:w-[92px] sm:h-[92px] rounded-2xl overflow-hidden shrink-0 relative bg-[#E8EEF0] border border-gray-200/80 shadow-xs self-center">
+                        <img
+                          src={preview.tileUrl}
+                          alt={`${hazard.area} map location`}
+                          loading="lazy"
+                          className="w-full h-full object-cover scale-125 pointer-events-none select-none"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
+                        <div
+                          className="absolute -translate-x-1/2 -translate-y-full pointer-events-none"
+                          style={{ left: `${preview.leftPct}%`, top: `${preview.topPct}%` }}
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                          <div className="w-7 h-7 rounded-full rounded-bl-[3px] -rotate-45 bg-[#1C241E] border-2 border-white shadow-md flex items-center justify-center">
+                            {kindMeta.pinIcon}
+                          </div>
+                        </div>
+                        <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 pointer-events-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs" />
+                          <span className="w-1 h-1 rounded-full bg-white/70" />
+                          <span className="w-1 h-1 rounded-full bg-white/70" />
+                        </div>
                       </div>
                     </div>
 
-                    {alert.customNote && (
-                      <p className={`text-[11px] font-semibold px-2.5 py-1 rounded-xl truncate italic border ${
-                        isDark
-                          ? 'bg-rose-950/30 text-rose-200 border-rose-900/40'
-                          : 'bg-rose-50/60 text-gray-800 border-rose-100/90'
-                      }`}>
-                        "{alert.customNote}"
-                      </p>
-                    )}
+                    {/* Incident Report Analysis */}
+                    <div className="mt-3 pt-2.5 border-t border-gray-100">
+                      <div className="flex items-center justify-between mb-1.5 gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 shrink-0">
+                          Report Analysis
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-400 tabular-nums truncate">
+                          {activeVoteLabels.length > 0
+                            ? `Voted: ${activeVoteLabels.join(' + ')}`
+                            : `${totalAnalysis} ${totalAnalysis === 1 ? 'response' : 'responses'}`}
+                        </span>
+                      </div>
+
+                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex mb-2">
+                        <div
+                          className="bg-rose-500 h-full transition-all"
+                          style={{ width: `${(unsolvedCount / safeTotal) * 100}%` }}
+                        />
+                        <div
+                          className="bg-slate-400 h-full transition-all"
+                          style={{ width: `${(falseReportCount / safeTotal) * 100}%` }}
+                        />
+                        <div
+                          className="bg-emerald-500 h-full transition-all"
+                          style={{ width: `${(beingSolvedCount / safeTotal) * 100}%` }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          disabled={confirmingHazardId === hazard.id}
+                          onClick={(e) => void handleVoteHazardAnalysis(e, hazard.id, 'unsolved')}
+                          className={`py-1.5 px-1.5 rounded-xl border text-center transition-all cursor-pointer ${
+                            myVote.unsolved
+                              ? 'bg-rose-100 border-rose-500 ring-1 ring-rose-300'
+                              : 'bg-rose-50/90 hover:bg-rose-100/80 border-rose-200/80'
+                          }`}
+                          title={myVote.unsolved ? 'Tap again to remove your vote' : 'Saw it — true and unsolved'}
+                        >
+                          <span className="block text-sm font-black text-rose-700 tabular-nums leading-none">
+                            {unsolvedCount}
+                          </span>
+                          <span className="block text-[9.5px] font-bold text-rose-800 mt-1 leading-tight">
+                            {myVote.unsolved ? '✓ ' : ''}True &amp; Unsolved
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={confirmingHazardId === hazard.id}
+                          onClick={(e) => void handleVoteHazardAnalysis(e, hazard.id, 'false_report')}
+                          className={`py-1.5 px-1.5 rounded-xl border text-center transition-all cursor-pointer ${
+                            myVote.false_report
+                              ? 'bg-slate-200 border-slate-500 ring-1 ring-slate-300'
+                              : 'bg-slate-100/90 hover:bg-slate-200/80 border-slate-200'
+                          }`}
+                          title={myVote.false_report ? 'Tap again to remove your vote' : 'Not there — false report'}
+                        >
+                          <span className="block text-sm font-black text-slate-700 tabular-nums leading-none">
+                            {falseReportCount}
+                          </span>
+                          <span className="block text-[9.5px] font-bold text-slate-600 mt-1 leading-tight">
+                            {myVote.false_report ? '✓ ' : ''}False Report
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={confirmingHazardId === hazard.id}
+                          onClick={(e) => void handleVoteHazardAnalysis(e, hazard.id, 'being_solved')}
+                          className={`py-1.5 px-1.5 rounded-xl border text-center transition-all cursor-pointer ${
+                            myVote.being_solved
+                              ? 'bg-emerald-100 border-emerald-500 ring-1 ring-emerald-300'
+                              : 'bg-emerald-50/90 hover:bg-emerald-100/80 border-emerald-200/80'
+                          }`}
+                          title={myVote.being_solved ? 'Tap again to remove your vote' : 'True & solved / cleared'}
+                        >
+                          <span className="block text-sm font-black text-emerald-700 tabular-nums leading-none">
+                            {beingSolvedCount}
+                          </span>
+                          <span className="block text-[9.5px] font-bold text-emerald-800 mt-1 leading-tight">
+                            {myVote.being_solved ? '✓ ' : ''}True &amp; Solved
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
-              })}
+                })}
             </div>
           );
         })()}
       </div>
-
-      {/* Selected Alert Quick-Action Modal */}
-      {selectedAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
-          <div className={`rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#181A20] text-white border-white/15' : 'bg-white text-gray-950 border-gray-200'
-          }`}>
-            <button
-              onClick={() => setSelectedAlert(null)}
-              className={`absolute top-4 right-4 p-2 rounded-full cursor-pointer transition-colors ${
-                isDark ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-              }`}
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div>
-                <div className="w-40 max-w-full drop-shadow-xs">
-                  <ProvincialPlate
-                    provinceCode={detectProvinceFromPlate(selectedAlert.plateDisplay)}
-                    plateText={selectedAlert.plateDisplay}
-                  />
-                </div>
-                <div className={`font-mono font-black text-xs mt-1 ${isDark ? 'text-white/90' : 'text-gray-900'}`}>
-                  {selectedAlert.plateDisplay}
-                </div>
-              </div>
-              <span className={`text-xs font-medium ${isDark ? 'text-white/50' : 'text-gray-400'}`}>
-                {getRelativeTime(selectedAlert.createdAt)}
-              </span>
-            </div>
-
-            <h3 className={`text-xl font-black font-display mt-1 ${isDark ? 'text-white' : 'text-gray-950'}`}>
-              {selectedAlert.issueTitle}
-            </h3>
-
-            {/* Mandatory Neutral Language Banner */}
-            <div className={`mt-3 p-3 rounded-2xl text-xs font-medium leading-relaxed border ${
-              isDark ? 'bg-amber-950/40 border-amber-900/50 text-amber-200' : 'bg-amber-50 border-amber-200/60 text-amber-900'
-            }`}>
-              "A road user reported a possible observation. Please check when safe."
-            </div>
-
-            {selectedAlert.customNote && (
-              <div className={`mt-3 p-3 rounded-2xl text-xs border ${
-                isDark ? 'bg-[#1F2128] border-white/10 text-white/90' : 'bg-gray-50 border-gray-200/80 text-gray-700'
-              }`}>
-                <span className={`font-semibold block mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Observation note:</span>
-                "{selectedAlert.customNote}"
-              </div>
-            )}
-
-            {/* Recorded Delivery Confirmation */}
-            <div className={`mt-3 p-2.5 rounded-2xl flex items-center gap-2 text-xs border ${
-              isDark ? 'bg-blue-950/40 border-blue-900/50 text-blue-200' : 'bg-blue-50 border-blue-100 text-blue-900'
-            }`}>
-              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>System confirmation: Recorded delivered to your app feed.</span>
-            </div>
-
-            {/* Action selector */}
-            {!actionType ? (
-              <div className="mt-5 space-y-2">
-                <button
-                  onClick={() => submitAlertAction('resolve')}
-                  disabled={isSubmittingAction}
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Mark as Read</span>
-                </button>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setActionType('dispute')}
-                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl transition-colors cursor-pointer ${
-                      isDark
-                        ? 'border-white/15 text-white/80 hover:bg-[#282B34]'
-                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Dispute Note
-                  </button>
-                  <button
-                    onClick={() => setActionType('flag_abuse')}
-                    className={`py-2.5 px-3 border font-semibold text-xs rounded-2xl transition-colors cursor-pointer ${
-                      isDark
-                        ? 'border-rose-900/50 text-rose-400 hover:bg-rose-950/40'
-                        : 'border-red-200 text-red-600 hover:bg-red-50'
-                    }`}
-                  >
-                    Flag as Abuse
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => submitAlertAction('dismiss')}
-                  disabled={isSubmittingAction}
-                  className={`w-full py-2 text-xs cursor-pointer transition-colors ${
-                    isDark ? 'text-white/50 hover:text-white' : 'text-gray-400 hover:text-gray-700'
-                  }`}
-                >
-                  Dismiss / Acknowledge
-                </button>
-              </div>
-            ) : (
-              <div className={`mt-4 pt-2 border-t space-y-3 ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
-                <div className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                  {actionType === 'dispute'
-                    ? 'Why are you disputing this report?'
-                    : 'Report this alert as harassment or abuse:'}
-                </div>
-                <textarea
-                  rows={2}
-                  value={actionNote}
-                  onChange={(e) => setActionNote(e.target.value)}
-                  placeholder="Provide details..."
-                  className={`w-full p-2.5 text-xs rounded-2xl focus:outline-none border transition-colors ${
-                    isDark
-                      ? 'bg-[#121317] border-white/15 text-white placeholder:text-white/40 focus:border-white/40'
-                      : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-[#941329]'
-                  }`}
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActionType(null)}
-                    className={`w-1/3 py-2 text-xs border rounded-2xl cursor-pointer ${
-                      isDark ? 'border-white/15 text-white/70 hover:bg-white/10' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => submitAlertAction(actionType)}
-                    disabled={isSubmittingAction || !actionNote.trim()}
-                    className={`w-2/3 py-2 text-xs font-bold text-white rounded-2xl cursor-pointer ${
-                      actionType === 'dispute' ? 'bg-[#941329] hover:bg-[#7a0f21]' : 'bg-red-600 hover:bg-red-700'
-                    } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  >
-                    Submit {actionType === 'dispute' ? 'Dispute' : 'Abuse Report'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* 5. EMERGENCY CONTACTS MODAL */}
       {showEmergencyModal && (
@@ -1376,155 +1843,229 @@ export function HomeScreen() {
         </div>
       )}
 
-      {/* 6. FULL PAGE RSA LIVE MAP VIEW */}
-      {showMapModal && (
-        <div className={`fixed inset-0 pt-14 z-30 flex flex-col h-full w-full overflow-y-auto overflow-x-hidden no-scrollbar font-sans transition-colors ${
-          isDark ? 'bg-[#090A0C] text-white' : 'bg-[#FAF8F6] text-gray-900'
-        }`}>
-          {/* Floating Back Button */}
-          <button
-            type="button"
-            onClick={() => setShowMapModal(false)}
-            className={`absolute top-4 left-4 z-30 p-2.5 rounded-full shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center justify-center ${
-              isDark
-                ? 'bg-[#16181D]/90 hover:bg-[#22252C] text-white border border-white/20'
-                : 'bg-white hover:bg-gray-100 text-gray-950 border border-gray-200/90 shadow-md'
-            }`}
-            aria-label="Back to Home"
-            title="Back to Home"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-
-          {/* Coming Soon Map Viewport Area */}
-          <div className={`flex-1 w-full relative flex flex-col items-center justify-center p-6 text-center overflow-y-auto ${
-            isDark ? 'bg-[#090A0C]' : 'bg-[#FAF8F6]'
-          }`}>
-            {/* Background Grid & Aurora Mesh Glows */}
-            <div className={`absolute inset-0 [background-size:24px_24px] pointer-events-none ${
-              isDark
-                ? 'bg-[radial-gradient(#334155_1px,transparent_1px)] opacity-30'
-                : 'bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] opacity-50'
-            }`} />
-            <div className="absolute -top-20 -left-20 w-80 h-80 rounded-full bg-[#941329]/30 blur-[90px] pointer-events-none" />
-            <div className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full bg-rose-600/20 blur-[90px] pointer-events-none" />
-
-            <div className="relative z-10 max-w-sm w-full mx-auto flex flex-col items-center my-auto py-4">
-              {/* Animated Map Icon Badge */}
-              <div className={`w-16 h-16 rounded-3xl shadow-2xl flex items-center justify-center mb-4 relative group ${
-                isDark
-                  ? 'bg-slate-900/90 border border-slate-700/80 text-rose-400'
-                  : 'bg-white border border-gray-200 text-[#941329] shadow-md'
-              }`}>
-                <MapPin className="w-8 h-8 stroke-[2.2] animate-bounce" />
-                <span className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 animate-pulse ${
-                  isDark ? 'border-[#090A0C]' : 'border-white'
-                }`} />
-              </div>
-
-              {/* Coming Soon Tag */}
-              <span className={`px-4 py-1 rounded-full text-[11px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 shadow-xs border ${
-                isDark
-                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                  : 'bg-rose-50 border-rose-200 text-[#941329]'
-              }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                Coming Soon
-              </span>
-
-              {/* Title */}
-              <h2 className={`text-2xl font-black font-display tracking-tight mb-2 ${
-                isDark ? 'text-white' : 'text-gray-950'
-              }`}>
-                Live Interactive Map
-              </h2>
-
-              <p className={`text-xs leading-relaxed font-medium mb-5 ${
-                isDark ? 'text-slate-300' : 'text-gray-600'
-              }`}>
-                With our upcoming live map feature, road users across South Africa can pin and report live road conditions in real-time:
-              </p>
-
-              {/* Feature Highlights Grid */}
-              <div className="w-full space-y-2.5 text-left mb-6">
-                {/* 1. Potholes */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
-                  isDark
-                    ? 'bg-slate-900/80 border-slate-800 text-white'
-                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
-                }`}>
-                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
-                    isDark
-                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                      : 'bg-amber-50 border-amber-200 text-amber-600'
-                  }`}>
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Potholes & Road Damage</h4>
-                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                      Mark dangerous potholes, road surface damage, and unlit hazards.
-                    </p>
-                  </div>
+      {/* 5b. COMMUNITY HUB PROVINCE & CITY FILTER MODAL */}
+      {showCommunityFilterModal && (
+        <div className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="glass-modal text-gray-950 rounded-[32px] w-full max-w-[390px] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-50 text-[#941329] flex items-center justify-center shrink-0">
+                  <SlidersHorizontal className="w-4.5 h-4.5 stroke-[2.2]" />
                 </div>
-
-                {/* 2. Accidents */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
-                  isDark
-                    ? 'bg-slate-900/80 border-slate-800 text-white'
-                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
-                }`}>
-                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
-                    isDark
-                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                      : 'bg-red-50 border-red-200 text-[#941329]'
-                  }`}>
-                    <Siren className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Accidents & Collisions</h4>
-                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                      Pin live vehicle collisions for emergency responder dispatch and alert nearby drivers.
-                    </p>
-                  </div>
-                </div>
-
-                {/* 3. Traffic Jams */}
-                <div className={`p-3.5 rounded-2xl flex items-start gap-3 border ${
-                  isDark
-                    ? 'bg-slate-900/80 border-slate-800 text-white'
-                    : 'bg-white border-gray-200/90 text-gray-900 shadow-sm'
-                }`}>
-                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${
-                    isDark
-                      ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-                      : 'bg-blue-50 border-blue-200 text-blue-600'
-                  }`}>
-                    <Car className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-950'}`}>Traffic Jams & Delays</h4>
-                    <p className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                      Track real-time traffic bottlenecks, highway delays, and lane closures.
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-gray-950 font-display leading-tight">
+                    Filter Community Hub
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    Choose province and city for road alerts
+                  </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowCommunityFilterModal(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+                aria-label="Close filter modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="w-full">
+            <form onSubmit={handleApplyCommunityFilter} className="space-y-3">
+              {/* Auto-detect User Location Button */}
+              <button
+                type="button"
+                onClick={handleDetectLocationForFilter}
+                disabled={isDetectingLocation}
+                className="w-full py-2.5 px-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+              >
+                {isDetectingLocation ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+                ) : (
+                  <LocateFixed className="w-4 h-4 text-emerald-700" />
+                )}
+                <span>
+                  {isDetectingLocation
+                    ? 'Detecting province & city...'
+                    : 'Use My Location (Auto-Set Province & City)'}
+                </span>
+              </button>
+
+              {locationDetectStatus && (
+                <div
+                  className={`p-2.5 rounded-2xl text-[11px] font-semibold flex items-start gap-2 ${
+                    locationDetectStatus.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-900 border border-amber-200'
+                  }`}
+                >
+                  {locationDetectStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                  )}
+                  <span className="leading-snug">{locationDetectStatus.text}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
+                  Province
+                </label>
+                <select
+                  value={draftProvince}
+                  onChange={(e) => {
+                    setDraftProvince(e.target.value);
+                    setDraftCity('ALL');
+                    setDraftCustomCity('');
+                    setLocationDetectStatus(null);
+                  }}
+                  className="w-full px-3 py-2.5 bg-gray-50 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:border-[#B81D39]"
+                >
+                  <option value="ALL">All Provinces (Nationwide)</option>
+                  {SA_PROVINCES.map((prov) => (
+                    <option key={prov.code} value={prov.code}>
+                      {prov.name} ({prov.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
+                  City / Town
+                </label>
+                <select
+                  disabled={draftProvince === 'ALL'}
+                  value={draftCity}
+                  onChange={(e) => setDraftCity(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:border-[#B81D39]"
+                >
+                  <option value="ALL">
+                    {draftProvince === 'ALL' ? 'Select a province first' : 'All cities in province'}
+                  </option>
+                  {getProvinceCityOptions(draftProvince).map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                  {draftProvince !== 'ALL' && <option value="__other__">Other city / town...</option>}
+                </select>
+              </div>
+
+              {draftProvince !== 'ALL' && draftCity === '__other__' && (
+                <input
+                  type="text"
+                  value={draftCustomCity}
+                  onChange={(e) => setDraftCustomCity(e.target.value)}
+                  placeholder="Enter city or suburb name..."
+                  className="w-full px-3 py-2.5 bg-gray-50 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-900 focus:bg-white focus:outline-none focus:border-[#B81D39]"
+                />
+              )}
+
+              <div className="p-2.5 rounded-2xl bg-gray-50 border border-gray-100 text-[11px] text-gray-600 flex items-center justify-between">
+                <span>Matching alerts:</span>
+                <strong className="text-gray-950">
+                  {
+                    communityHazards.filter((h) => {
+                      const resolvedDraftCity =
+                        draftProvince === 'ALL'
+                          ? 'ALL'
+                          : draftCity === '__other__'
+                            ? draftCustomCity.trim() || 'ALL'
+                            : draftCity || 'ALL';
+                      return (
+                        matchesCommunityProvince(h.province, draftProvince) &&
+                        matchesCommunityCity(h, resolvedDraftCity)
+                      );
+                    }).length
+                  }
+                </strong>
+              </div>
+
+              <div className="pt-1 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowMapModal(false)}
-                  className="w-full py-3 bg-[#941329] hover:bg-[#7D0E20] text-white font-bold text-xs rounded-2xl transition-all shadow-md cursor-pointer"
+                  onClick={handleResetCommunityFilter}
+                  className="flex-1 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Back to Dashboard
+                  Reset All
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-2xl bg-[#941329] hover:bg-[#7D0E20] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  Apply Filter
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
+
+      {/* 6. FULL PAGE RSA LIVE MAP VIEW (Powered by FreeRoute) */}
+      {showMapModal && (
+        <LiveRouteMap
+          onClose={() => {
+            setShowMapModal(false);
+            setFocusedMapHazard(null);
+            void fetchCommunityHazards();
+          }}
+          provinceFilter={mapProvinceFilter}
+          onProvinceFilterChange={setMapProvinceFilter}
+          initialHazard={focusedMapHazard}
+          onHazardsChanged={() => void fetchCommunityHazards()}
+        />
+      )}
+
+      {/* 7. FULL-SCREEN BLUR + CUT-OUT POLICE STROBE REPORT BUTTON */}
+      {isPoliceStrobe &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998] backdrop-blur-lg bg-black/55 pointer-events-auto touch-none select-none"
+              onContextMenu={(e) => e.preventDefault()}
+              onPointerUp={cancelPoliceStrobe}
+              onPointerCancel={cancelPoliceStrobe}
+              aria-hidden="true"
+            />
+            <div
+              className="fixed z-[9999] flex items-center justify-center pointer-events-auto"
+              style={{
+                top: strobeRect ? `${strobeRect.top}px` : '50%',
+                left: strobeRect ? `${strobeRect.left}px` : '50%',
+                width: strobeRect ? `${strobeRect.width}px` : '8rem',
+                height: strobeRect ? `${strobeRect.height}px` : '8rem',
+                transform: strobeRect ? undefined : 'translate(-50%, -50%)',
+                isolation: 'isolate',
+              }}
+            >
+              <button
+                type="button"
+                className="btn is-police-strobe focus:outline-none select-none touch-none"
+                style={{ width: '100%', height: '100%' }}
+                onContextMenu={(e) => e.preventDefault()}
+                onPointerUp={cancelPoliceStrobe}
+                onPointerCancel={cancelPoliceStrobe}
+                aria-label={`Keep holding for emergency call: ${strobeCountdown} seconds remaining`}
+              >
+                <span className="text-5xl font-black tabular-nums leading-none tracking-normal">
+                  {strobeCountdown}
+                </span>
+              </button>
+            </div>
+            <div
+              className="fixed bottom-8 inset-x-0 z-[9999] flex justify-center pointer-events-none px-4 select-none"
+              aria-live="assertive"
+            >
+              <p className="text-xl font-black tracking-wide text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                Keep Holding
+              </p>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }

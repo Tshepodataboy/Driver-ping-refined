@@ -1,7 +1,9 @@
 {
   "name": "Remix  Driver Ping",
   "description": "Look out for each other. Helpful, anonymous vehicle condition and road alerts between drivers.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "geolocation"
+  ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

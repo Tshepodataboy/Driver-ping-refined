@@ -21,6 +21,7 @@ import {
   Siren,
   Sparkles,
   Loader2,
+  Save,
 } from 'lucide-react';
 
 import { SA_PROVINCES, searchProvinces } from '../constants/provinces.js';
@@ -124,8 +125,13 @@ export function ReportScreen() {
   // A draft picked from the drafts list loads over the current attempt, even
   // when the Report tab is already open.
   useEffect(() => {
-    const pendingDraft = takePendingResumeDraft();
-    if (pendingDraft) resumeDraft(pendingDraft);
+    const checkPending = () => {
+      const pendingDraft = takePendingResumeDraft();
+      if (pendingDraft) resumeDraft(pendingDraft);
+    };
+    checkPending();
+    window.addEventListener('driver-ping-resume-draft', checkPending);
+    return () => window.removeEventListener('driver-ping-resume-draft', checkPending);
   });
 
   // Submission state
@@ -463,6 +469,49 @@ export function ReportScreen() {
     setIdempotencyKey(`idemp_${Date.now()}_${Math.random()}`);
   };
 
+  const hasRecordedContent = useMemo(
+    () =>
+      draftHasProgress({
+        id: draftIdRef.current,
+        step: step === 4 ? 1 : step,
+        provinceCode: selectedProvinceCode,
+        plateNumber,
+        plate,
+        category: selectedCategory,
+        issueCode: selectedIssueCode,
+        customOtherText,
+        customNote,
+        incidentArea,
+        photo: photoPreview,
+        updatedAt: 0,
+      }),
+    [step, selectedProvinceCode, plateNumber, plate, selectedCategory, selectedIssueCode, customOtherText, customNote, incidentArea, photoPreview]
+  );
+
+  // Explicitly save the current report in draft storage, cancel the active attempt, and return home.
+  const handleSaveAsDraft = () => {
+    if (!hasRecordedContent) return;
+    const currentStep: 1 | 2 | 3 = step === 4 ? 1 : step;
+    const draft: ReportDraft = {
+      id: draftIdRef.current,
+      step: currentStep,
+      provinceCode: selectedProvinceCode,
+      plateNumber,
+      plate,
+      category: selectedCategory,
+      issueCode: selectedIssueCode,
+      customOtherText,
+      customNote,
+      incidentArea,
+      photo: photoPreview,
+      updatedAt: Date.now(),
+    };
+    upsertDraft(draft);
+    setReportCategoryPreset(null);
+    startNewReport();
+    setActiveTab('home');
+  };
+
   // Dynamic pill header depending on chosen category
   const getPillData = () => {
     if (!reportCategoryPreset && step === 1 && !selectedCategory) {
@@ -667,27 +716,50 @@ export function ReportScreen() {
           </div>
         </div>
 
-        {/* Header / Progress */}
+        {/* Header / Progress - firm consistent controls across all form steps */}
         {step < 4 && (
           <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
               <button
+                type="button"
                 onClick={() => {
                   if (step === 1) setActiveTab('home');
                   else setStep((s) => (s - 1) as any);
                 }}
-                className={`text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                className={`text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0 py-1 ${
                   isDark ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
-              <span className={`text-[11px] font-black uppercase tracking-wider ${
+              <span className={`text-[11px] font-black uppercase tracking-wider whitespace-nowrap ${
                 isDark ? 'text-white/50' : 'text-gray-500'
               }`}>
                 Step {step} of 3
               </span>
+              <button
+                type="button"
+                onClick={handleSaveAsDraft}
+                disabled={!hasRecordedContent}
+                title={
+                  hasRecordedContent
+                    ? 'Cancel report and save to drafts'
+                    : 'Enter vehicle or observation details before saving as draft'
+                }
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all whitespace-nowrap shrink-0 ${
+                  hasRecordedContent
+                    ? isDark
+                      ? 'bg-[#1C1E24] hover:bg-[#252830] text-white/90 border-white/20 cursor-pointer active:scale-95'
+                      : 'bg-rose-50 hover:bg-rose-100 text-[#941329] border-rose-200 shadow-2xs cursor-pointer active:scale-95'
+                    : isDark
+                      ? 'bg-[#16181D] text-white/30 border-white/10 opacity-60 cursor-not-allowed'
+                      : 'bg-gray-100 text-gray-400 border-gray-200 opacity-65 cursor-not-allowed'
+                }`}
+              >
+                <Save className={`w-3.5 h-3.5 ${hasRecordedContent ? 'text-[#941329]' : isDark ? 'text-white/30' : 'text-gray-400'}`} />
+                <span>Save as Draft</span>
+              </button>
             </div>
 
             <div className={`w-full h-1.5 rounded-full overflow-hidden mb-3 ${
@@ -1177,15 +1249,7 @@ export function ReportScreen() {
             </div>
           )}
 
-          <div className="mt-6 flex gap-2">
-            <button
-              onClick={() => setStep(1)}
-              className={`w-1/3 py-3.5 border font-bold text-xs rounded-2xl transition-all cursor-pointer ${
-                isDark ? 'bg-[#222428] hover:bg-[#2A2C32] border-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
-              }`}
-            >
-              Back
-            </button>
+          <div className="mt-6">
             <button
               onClick={() => {
                 if (selectedIssueCode) {
@@ -1196,7 +1260,7 @@ export function ReportScreen() {
                 }
               }}
               disabled={!selectedIssueCode}
-              className={`w-2/3 py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`w-full py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 selectedIssueCode
                   ? (isDark ? 'bg-white hover:bg-gray-100 text-gray-950 active:scale-[0.99]' : 'bg-[#941329] hover:bg-[#7a0f21] text-white active:scale-[0.99]')
                   : (isDark ? 'bg-[#222428] text-white/30 cursor-not-allowed shadow-none' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none')
@@ -1329,19 +1393,11 @@ export function ReportScreen() {
             </div>
           </div>
 
-          <div className="mt-6 flex gap-2">
-            <button
-              onClick={() => setStep(2)}
-              className={`w-1/3 py-3.5 border font-bold text-xs rounded-2xl transition-all cursor-pointer ${
-                isDark ? 'bg-[#222428] hover:bg-[#2A2C32] border-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
-              }`}
-            >
-              Back
-            </button>
+          <div className="mt-6">
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className={`w-2/3 py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
+              className={`w-full py-3.5 font-bold text-xs rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
                 isDark ? 'bg-white hover:bg-gray-100 text-gray-950' : 'bg-[#941329] hover:bg-[#7a0f21] text-white'
               }`}
             >

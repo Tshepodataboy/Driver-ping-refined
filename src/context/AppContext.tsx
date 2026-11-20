@@ -61,6 +61,8 @@ interface AppContextType {
     phone?: string;
     defaultPlate?: string;
     defaultProvinceCode?: string;
+    homeProvince?: string;
+    homeCity?: string;
   }) => Promise<{ success: boolean; error?: string }>;
 
   // Vehicle actions
@@ -373,6 +375,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           mode,
           password,
         }),
+        signal: AbortSignal.timeout(12000),
       });
       const data = await res.json();
       if (!res.ok) return { success: false, error: data.error || 'Failed to sign in' };
@@ -393,7 +396,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchDemoAccounts();
       return { success: true, isNew: data.isNew, user: data.user };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Network error' };
+      const msg =
+        err?.name === 'TimeoutError' || err?.name === 'AbortError'
+          ? 'Login request timed out. Please try again.'
+          : err?.message || 'Network error';
+      return { success: false, error: msg };
     } finally {
       setIsLoading(false);
     }
@@ -498,6 +505,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     phone?: string;
     defaultPlate?: string;
     defaultProvinceCode?: string;
+    homeProvince?: string;
+    homeCity?: string;
   }) => {
     try {
       const res = await fetch('/api/user/preferences', {

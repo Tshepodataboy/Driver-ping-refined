@@ -7,6 +7,14 @@ import { db, DbUser } from './db.js';
 import { getGeminiClient, isGeminiConfigured, generateGeminiContentWithFallback, Type } from './gemini.js';
 import { normalizePlateScanResult } from './plateScan.js';
 import { toIncidentArea } from '../utils/incidentArea.js';
+import {
+  checkFreeRouteHealth,
+  geocodePlaces,
+  reverseGeocodePoint,
+  computeRoute,
+  resolveNetworkLocation,
+  HazardKind,
+} from './freeroute.js';
 
 export const apiRouter = express.Router();
 
@@ -162,13 +170,19 @@ apiRouter.get('/db-status', async (_req: Request, res: Response) => {
   await db.waitForInit();
   const status = db.getStatus();
   const aiConfigured = isGeminiConfigured();
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim();
+  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY)?.trim();
   res.json({
     status: 'ok',
-    database: status,
+    database: {
+      ...status,
+      supabaseProjectConfigured: Boolean(supabaseUrl && supabaseAnonKey),
+      supabaseAuthConfigured: Boolean(supabaseUrl && supabaseAnonKey),
+    },
     ai: {
       configured: aiConfigured,
       engine: 'Gemini Multimodal OCR & Note Assistant',
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.1-flash-lite',
       auditLoggedToSupabase: true,
     },
     instructions: status.connectedToPostgres
@@ -267,8 +281,29 @@ apiRouter.post('/auth/verify-otp', async (req: Request, res: Response) => {
   });
 });
 
-// Email/password authentication delegated to Supabase Auth.
-// Supabase's email-confirmation setting must be enabled in the dashboard.
+// Password hashing helpers (scrypt with per-user random salt)
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derived = (await scrypt(password, salt, 64)) as Buffer;
+  return `scrypt:${salt}:${derived.toString('hex')}`;
+}
+
+async function verifyPassword(password: string, storedHash: string): Promise<{ valid: boolean; needsUpgrade: boolean }> {
+  if (!storedHash) return { valid: false, needsUpgrade: false };
+  if (storedHash.startsWith('scrypt:')) {
+    const parts = storedHash.split(':');
+    if (parts.length !== 3) return { valid: false, needsUpgrade: false };
+    const [, salt, hexKey] = parts;
+    const keyBuf = Buffer.from(hexKey, 'hex');
+    const derived = (await scrypt(password, salt, 64)) as Buffer;
+    if (keyBuf.length !== derived.length) return { valid: false, needsUpgrade: false };
+    return { valid: timingSafeEqual(keyBuf, derived), needsUpgrade: false };
+  }
+  // Backwards-compatible check for legacy plaintext rows in Supabase; upgrades to scrypt on sign-in
+  return { valid: storedHash === password, needsUpgrade: storedHash === password };
+}
+
+// Email/password authentication delegated to Supabase Auth with PostgreSQL backup.
 async function supabaseAuthRequest(path: string, body: Record<string, unknown>) {
   const baseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim().replace(/\/$/, '');
   const anonKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY)?.trim();
@@ -279,6 +314,7 @@ async function supabaseAuthRequest(path: string, body: Record<string, unknown>) 
     method: 'POST',
     headers: { apikey: anonKey, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(8000),
   });
   const data = await response.json().catch(() => ({} as any));
   return { response, data };
@@ -306,7 +342,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
 
       let supabaseUserId: string | undefined;
 
-      // 2. Register confirmed user in Supabase Auth via Admin API (bypasses email rate limits & confirms instantly)
+      // 2. Register confirmed user in Supabase Auth via Admin API if service key is available
       if (baseUrl && serviceKey) {
         try {
           const adminRes = await fetch(`${baseUrl}/auth/v1/admin/users`, {
@@ -322,6 +358,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
               email_confirm: true,
               user_metadata: { full_name: displayName },
             }),
+            signal: AbortSignal.timeout(8000),
           });
           const adminData = await adminRes.json().catch(() => ({} as any));
           if (adminRes.ok && adminData?.id) {
@@ -338,7 +375,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
         }
       }
 
-      // If Admin API was not used or failed, try public signup
+      // If Admin API was not used or failed, try public signup (with graceful fallback on rate-limit/timeout)
       if (!supabaseUserId && baseUrl && anonKey) {
         try {
           const { response, data } = await supabaseAuthRequest('signup', {
@@ -348,20 +385,27 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
           });
           if (response.ok && data?.user?.id) {
             supabaseUserId = data.user.id;
+          } else if (response.status === 429) {
+            console.info('[Auth] Supabase email rate limit reached; continuing with direct Supabase PostgreSQL user creation.');
           } else {
             const detail = String(data?.msg || data?.message || data?.error_description || data?.error || '').toLowerCase();
             if (detail.includes('already') || detail.includes('registered') || detail.includes('exists')) {
               return res.status(409).json({ error: 'An account with this email already exists in Supabase. Try signing in.' });
             }
           }
-        } catch (pubErr) {
-          console.warn('[Auth] Supabase public signup notice:', pubErr);
+        } catch (pubErr: any) {
+          if (pubErr?.name === 'TimeoutError' || pubErr?.name === 'AbortError') {
+            console.info('[Auth] Supabase public signup request timed out; continuing with direct Supabase PostgreSQL user creation.');
+          } else {
+            console.warn('[Auth] Supabase public signup notice:', pubErr);
+          }
         }
       }
 
-      // 3. Store user record in Supabase PostgreSQL (users table)
+      // 3. Store user record in Supabase PostgreSQL (users table) with salted scrypt password hash
       let user = await db.getUserByPhone(cleanEmail);
       if (!user) {
+        const passwordHash = await hashPassword(password);
         user = await db.createUser({
           id: supabaseUserId || undefined,
           phone: cleanEmail,
@@ -371,13 +415,13 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
           defaultPlate: typeof defaultPlate === 'string' ? defaultPlate : undefined,
           defaultProvinceCode: typeof defaultProvinceCode === 'string' ? defaultProvinceCode : undefined,
         });
-        await db.setPasswordHash(user.id, password);
+        await db.setPasswordHash(user.id, passwordHash);
         await db.createAuditLog({
           actorId: user.id,
           actionType: 'USER_REGISTERED_EMAIL',
           targetId: user.id,
           targetType: 'user',
-          detailsJson: { email: cleanEmail, provider: 'supabase' },
+          detailsJson: { email: cleanEmail, provider: supabaseUserId ? 'supabase_auth' : 'supabase_postgres' },
         });
       }
 
@@ -397,7 +441,23 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
     let user = await db.getUserByPhone(cleanEmail);
     let userExistsInSupabase = false;
 
-    // Check if user exists in Supabase Auth via Admin API if available
+    // 2. Fast local check against scrypt/stored hash if user exists in PostgreSQL
+    if (user) {
+      const storedHash = await db.getPasswordHash(cleanEmail);
+      if (storedHash) {
+        const { valid, needsUpgrade } = await verifyPassword(password, storedHash);
+        if (valid) {
+          if (needsUpgrade) {
+            const upgradedHash = await hashPassword(password);
+            await db.setPasswordHash(user.id, upgradedHash).catch(() => {});
+          }
+          const token = generateToken(user);
+          return res.json({ success: true, token, user, isNew: false });
+        }
+      }
+    }
+
+    // 3. Check if user exists in Supabase Auth via Admin API if available
     if (!user && baseUrl && serviceKey) {
       try {
         const adminCheckRes = await fetch(`${baseUrl}/auth/v1/admin/users`, {
@@ -406,6 +466,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
             apikey: serviceKey,
             Authorization: `Bearer ${serviceKey}`,
           },
+          signal: AbortSignal.timeout(8000),
         });
         const adminCheckData = await adminCheckRes.json().catch(() => ({} as any));
         if (Array.isArray(adminCheckData?.users)) {
@@ -418,7 +479,7 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Try Supabase Auth password grant
+    // 4. Try Supabase Auth password grant
     let supabaseSuccess = false;
     let supabaseUserData: any = null;
 
@@ -437,12 +498,13 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
       }
     }
 
-    // 3. Handle successful Supabase Auth sign in
+    // 5. Handle successful Supabase Auth sign in
     if (supabaseSuccess && supabaseUserData) {
       if (!user) {
         const dName = typeof supabaseUserData.user_metadata?.full_name === 'string'
           ? supabaseUserData.user_metadata.full_name
           : displayName;
+        const passwordHash = await hashPassword(password);
         user = await db.createUser({
           id: supabaseUserData.id || undefined,
           phone: cleanEmail,
@@ -450,22 +512,13 @@ apiRouter.post('/auth/email-login', async (req: Request, res: Response) => {
           role: 'user',
           plan: 'free',
         });
-        await db.setPasswordHash(user.id, password);
+        await db.setPasswordHash(user.id, passwordHash);
       }
       const token = generateToken(user);
       return res.json({ success: true, token, user, isNew: false });
     }
 
-    // 4. Fallback: Check password stored in database
-    if (user) {
-      const storedHash = await db.getPasswordHash(cleanEmail);
-      if (storedHash && storedHash === password) {
-        const token = generateToken(user);
-        return res.json({ success: true, token, user, isNew: false });
-      }
-    }
-
-    // 5. If authentication failed, inform user specifically whether email doesn't exist or password was incorrect
+    // 6. If authentication failed, inform user specifically whether email doesn't exist or password was incorrect
     const accountExists = Boolean(user || userExistsInSupabase);
     if (!accountExists) {
       return res.status(404).json({
@@ -543,7 +596,13 @@ apiRouter.get('/auth/demo-accounts', optionalAuth, async (req: AuthenticatedRequ
 // Update user preferences (SMS, Plan, Default Plate, Phone / Call Number, Name)
 apiRouter.patch('/user/preferences', authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
-  const { smsOptIn, smsMonthlyCapPence, plan, fullName, phone, defaultPlate, defaultProvinceCode } = req.body;
+  const { smsOptIn, smsMonthlyCapPence, plan, fullName, phone, defaultPlate, defaultProvinceCode, homeProvince, homeCity } = req.body;
+
+  if (homeProvince !== undefined || homeCity !== undefined) {
+    if (typeof homeProvince !== 'string' || !homeProvince.trim() || typeof homeCity !== 'string' || !homeCity.trim()) {
+      return res.status(400).json({ error: 'Please select both the province and city you live in.' });
+    }
+  }
 
   const updated = await db.updateUserPreferences(user.id, {
     smsOptIn: typeof smsOptIn === 'boolean' ? smsOptIn : undefined,
@@ -553,6 +612,8 @@ apiRouter.patch('/user/preferences', authenticateUser, async (req: Authenticated
     phone: typeof phone === 'string' && phone.trim() ? phone.trim() : undefined,
     defaultPlate: typeof defaultPlate === 'string' ? defaultPlate.trim().toUpperCase() : undefined,
     defaultProvinceCode: typeof defaultProvinceCode === 'string' ? defaultProvinceCode.trim().toUpperCase() : undefined,
+    homeProvince: typeof homeProvince === 'string' ? homeProvince.trim().toUpperCase() : undefined,
+    homeCity: typeof homeCity === 'string' ? homeCity.trim() : undefined,
   });
 
   if (!updated) {
@@ -1072,7 +1133,7 @@ apiRouter.get('/ai/status', (_req: Request, res: Response) => {
     configured,
     project: process.env.GOOGLE_CLOUD_PROJECT || null,
     projectNumber: process.env.GOOGLE_CLOUD_PROJECT_NUMBER || null,
-    model: 'gemini-3.5-flash',
+    model: 'gemini-3.1-flash-lite',
   });
 });
 
@@ -1252,5 +1313,212 @@ Finally, if a vehicle defect or hazard is clearly visible (broken light, flat ty
     return res.status(500).json({ error: error?.message || 'Failed to extract plate OCR details with Gemini.' });
   }
 });
+
+// ============================================================================
+// FREEROUTE LIVE MAP, GEOCODING & ROUTING PROXY ROUTES
+// ============================================================================
+
+apiRouter.get('/map/status', async (_req: Request, res: Response) => {
+  try {
+    const status = await checkFreeRouteHealth();
+    return res.json(status);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to inspect FreeRoute status.' });
+  }
+});
+
+apiRouter.get('/map/geocode', async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Number(req.query.limit || 6);
+    if (q.length < 2) {
+      return res.json({ places: [] });
+    }
+    const places = await geocodePlaces(q, limit);
+    return res.json({ places });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Geocoding search failed.' });
+  }
+});
+
+apiRouter.get('/map/reverse', async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return res.status(400).json({ error: 'Valid lat and lon query parameters are required.' });
+    }
+    const place = await reverseGeocodePoint(lat, lon);
+    return res.json({ place });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Reverse geocoding failed.' });
+  }
+});
+
+apiRouter.get('/map/network-location', async (req: Request, res: Response) => {
+  try {
+    const forwarded = req.headers['x-forwarded-for'];
+    const forwardedIp = Array.isArray(forwarded)
+      ? forwarded[0]
+      : typeof forwarded === 'string'
+        ? forwarded.split(',')[0]?.trim()
+        : undefined;
+    const realIp = typeof req.headers['x-real-ip'] === 'string' ? req.headers['x-real-ip'].trim() : undefined;
+    const clientIp = forwardedIp || realIp || req.ip || req.socket.remoteAddress || undefined;
+
+    const networkLoc = await resolveNetworkLocation(clientIp);
+    const reverse = await reverseGeocodePoint(networkLoc.lat, networkLoc.lon).catch(() => null);
+
+    return res.json({
+      location: {
+        lat: networkLoc.lat,
+        lon: networkLoc.lon,
+        area: reverse?.shortLabel || networkLoc.area,
+        provinceName: reverse?.provinceName || networkLoc.region,
+        city: reverse?.cityName || networkLoc.city,
+        countryCode: reverse?.countryCode || networkLoc.countryCode,
+        source: networkLoc.source,
+      },
+    });
+  } catch (error: any) {
+    return res.status(502).json({ error: error?.message || 'Unable to detect network location.' });
+  }
+});
+
+apiRouter.post('/map/route', async (req: Request, res: Response) => {
+  try {
+    const { from, to, profile } = req.body || {};
+    const fromLat = Number(from?.lat);
+    const fromLon = Number(from?.lon);
+    const toLat = Number(to?.lat);
+    const toLon = Number(to?.lon);
+
+    if (
+      !Number.isFinite(fromLat) ||
+      !Number.isFinite(fromLon) ||
+      !Number.isFinite(toLat) ||
+      !Number.isFinite(toLon)
+    ) {
+      return res.status(400).json({ error: 'Valid origin and destination coordinates are required.' });
+    }
+
+    const safeProfile = profile === 'foot-walking' ? 'foot-walking' : 'driving-car';
+    const route = await computeRoute({
+      from: { lat: fromLat, lon: fromLon },
+      to: { lat: toLat, lon: toLon },
+      profile: safeProfile,
+    });
+
+    return res.json({ success: true, route });
+  } catch (error: any) {
+    return res.status(502).json({ error: error?.message || 'Unable to calculate route.' });
+  }
+});
+
+apiRouter.get('/map/hazards', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    const province = typeof req.query.province === 'string' ? req.query.province : 'ALL';
+    const kind = typeof req.query.kind === 'string' ? req.query.kind : 'all';
+    const authUserId = (req as AuthenticatedRequest).user?.id;
+    const rawVoterId = typeof req.query.voterId === 'string' ? req.query.voterId.trim().slice(0, 64) : '';
+    const voterKey = authUserId
+      ? `user:${authUserId}`
+      : rawVoterId
+        ? `client:${rawVoterId}`
+        : '';
+
+    const [hazards, userVotes] = await Promise.all([
+      db.listMapHazards({ province, kind }),
+      voterKey ? db.getUserHazardVotes(voterKey) : Promise.resolve({}),
+    ]);
+    return res.json({ hazards, userVotes });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to load map hazards.' });
+  }
+});
+
+apiRouter.post('/map/hazards', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    const { kind, title, description, area, province, lat, lon, severity } = req.body || {};
+    const validKinds: HazardKind[] = ['pothole', 'accident', 'traffic', 'alert'];
+    if (!validKinds.includes(kind)) {
+      return res.status(400).json({ error: 'Invalid hazard kind.' });
+    }
+    const parsedLat = Number(lat);
+    const parsedLon = Number(lon);
+    if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) {
+      return res.status(400).json({ error: 'Valid latitude and longitude are required.' });
+    }
+    if (!title || typeof title !== 'string' || title.trim().length < 2) {
+      return res.status(400).json({ error: 'Please provide a brief hazard title.' });
+    }
+
+    const reporterId = (req as AuthenticatedRequest).user?.id || null;
+    const hazard = await db.createMapHazard({
+      kind,
+      title,
+      description,
+      area,
+      province,
+      lat: parsedLat,
+      lon: parsedLon,
+      severity: severity === 'low' || severity === 'high' ? severity : 'medium',
+      reporterId,
+    });
+
+    await db.createAuditLog({
+      actorId: reporterId,
+      actionType: 'MAP_HAZARD_PINNED',
+      targetId: hazard.id,
+      targetType: 'map_hazard',
+      detailsJson: { kind: hazard.kind, area: hazard.area, province: hazard.province },
+    }).catch(() => {});
+
+    return res.status(201).json({ success: true, hazard });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to save hazard pin.' });
+  }
+});
+
+apiRouter.post('/map/hazards/:id/confirm', async (req: Request, res: Response) => {
+  try {
+    const updated = await db.confirmMapHazard(req.params.id);
+    if (!updated) {
+      return res.status(404).json({ error: 'Hazard pin not found.' });
+    }
+    return res.json({ success: true, hazard: updated });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to confirm hazard.' });
+  }
+});
+
+apiRouter.post('/map/hazards/:id/analysis', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    const status = req.body?.status;
+    if (status !== 'unsolved' && status !== 'being_solved' && status !== 'false_report') {
+      return res.status(400).json({ error: 'Invalid status. Expected unsolved, being_solved, or false_report.' });
+    }
+    const authUserId = (req as AuthenticatedRequest).user?.id;
+    const rawVoterId = typeof req.body?.voterId === 'string' ? req.body.voterId.trim().slice(0, 64) : '';
+    const voterKey = authUserId
+      ? `user:${authUserId}`
+      : rawVoterId
+        ? `client:${rawVoterId}`
+        : `ip:${req.ip || 'anon'}`;
+
+    const result = await db.voteMapHazardAnalysis(req.params.id, status, voterKey);
+    if (!result) {
+      return res.status(404).json({ error: 'Hazard pin not found.' });
+    }
+    return res.json({
+      success: true,
+      userVote: result.userVote,
+      hazard: result.hazard,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to update report analysis.' });
+  }
+});
+
 
 

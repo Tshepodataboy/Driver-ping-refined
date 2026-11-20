@@ -357,34 +357,36 @@ export function VehiclesScreen() {
 
       {/* ADD VEHICLE MODAL */}
       {isAddVehicleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
-          <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
+          <div className="pro-form-card text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-gray-100 max-h-[90vh] overflow-y-auto">
             <button
+              type="button"
               onClick={() => setIsAddVehicleOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close modal"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* Top Squircle Badge matching Reference Image */}
+            {/* Top Squircle Badge */}
             <div className="pro-squircle mb-3.5">
-              <Car className="w-6 h-6 text-white" />
+              <Car className="w-6 h-6 text-[#941329]" />
             </div>
 
-            <h2 className="text-xl font-bold font-display text-white tracking-tight">
+            <h2 className="text-xl font-bold font-display text-gray-950 tracking-tight">
               Register a Vehicle
             </h2>
-            <p className="text-xs text-white/60 mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               Add a vehicle you drive to start receiving safety observations.
             </p>
 
             {feedback?.error && (
-              <div className="mt-3 p-3 bg-rose-500/20 text-rose-200 border border-rose-500/30 rounded-xl text-xs">
+              <div className="mt-3 p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-medium">
                 {feedback.error}
               </div>
             )}
             {feedback?.message && (
-              <div className="mt-3 p-3 bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 rounded-xl text-xs">
+              <div className="mt-3 p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-medium">
                 {feedback.message}
               </div>
             )}
@@ -392,27 +394,27 @@ export function VehiclesScreen() {
             <form onSubmit={handleRegister} className="mt-4 space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
                     Province Search
                   </label>
-                  <span className="text-[10px] text-white/40 font-medium">Search required</span>
+                  <span className="text-[10px] text-gray-500 font-medium">Search required</span>
                 </div>
 
-                {/* Recessed Search Bar matching Reference Image */}
+                {/* Recessed Search Bar */}
                 <div className="relative mb-2">
-                  <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={provinceSearch}
                     onChange={(e) => setProvinceSearch(e.target.value)}
                     placeholder="Search by province name (e.g. Gauteng, Western Cape) or code (GP, WC)..."
-                    className="w-full pl-8 pr-7 py-2.5 bg-[#131417] border border-white/10 rounded-xl text-xs font-medium text-white placeholder:text-white/35 focus:bg-[#17181D] focus:outline-none focus:border-white/30 transition-all shadow-inner"
+                    className="w-full pl-8 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                   />
                   {provinceSearch && (
                     <button
                       type="button"
                       onClick={() => setProvinceSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white cursor-pointer"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 cursor-pointer"
                       title="Clear search"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -424,7 +426,7 @@ export function VehiclesScreen() {
                 {provinceSearch.trim() ? (
                   <div className="space-y-1 max-h-40 overflow-y-auto mb-2 pr-0.5 animate-in fade-in">
                     {searchProvinces(provinceSearch).length === 0 ? (
-                      <div className="p-3 bg-[#131417] rounded-xl border border-dashed border-white/10 text-center text-[11px] text-white/50">
+                      <div className="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center text-[11px] text-gray-500">
                         No provinces match "{provinceSearch}". Try searching by province name (e.g. Gauteng, Western Cape) or code (GP, WC).
                       </div>
                     ) : (
@@ -438,12 +440,12 @@ export function VehiclesScreen() {
                           }}
                           className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-colors cursor-pointer gap-2 ${
                             provinceCode === prov.code
-                              ? 'border-white/30 bg-[#242730] text-white ring-1 ring-white/20'
-                              : 'border-white/[0.08] bg-[#141518] hover:bg-[#1D1F24] text-white/80'
+                              ? 'border-[#941329] bg-rose-50/70 text-gray-950 ring-1 ring-[#941329]/20'
+                              : 'border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-800'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-6 h-6 rounded-md bg-[#26282E] border border-white/10 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
+                            <span className="w-6 h-6 rounded-md bg-white border border-gray-200 text-[#941329] font-mono font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs">
                               {prov.code}
                             </span>
                             <span className="font-semibold truncate">{prov.name} ({prov.code})</span>
@@ -456,12 +458,12 @@ export function VehiclesScreen() {
                     )}
                   </div>
                 ) : (
-                  <div className="p-2.5 bg-[#131417] border border-white/10 rounded-xl flex items-center justify-between gap-2 mb-2">
+                  <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-md bg-[#26282E] border border-white/10 text-white font-mono font-bold text-[10px] flex items-center justify-center">
+                      <span className="w-6 h-6 rounded-md bg-white border border-gray-200 text-[#941329] font-mono font-bold text-[10px] flex items-center justify-center shadow-2xs">
                         {provinceCode}
                       </span>
-                      <span className="text-xs font-semibold text-white">
+                      <span className="text-xs font-semibold text-gray-900">
                         {SA_PROVINCES.find((p) => p.code === provinceCode)?.name || 'Selected'} ({provinceCode})
                       </span>
                     </div>
@@ -474,16 +476,16 @@ export function VehiclesScreen() {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
                     Registration Number
                   </label>
-                  <span className="text-[10px] text-white/40">
+                  <span className="text-[10px] text-gray-500 font-medium">
                     Tag: {SA_PROVINCES.find((p) => p.code === provinceCode)?.plateExample}
                   </span>
                 </div>
 
                 {/* Live Provincial Plate Artwork Preview */}
-                <div className="mb-2 max-w-[240px] mx-auto rounded-2xl overflow-hidden p-1.5 bg-[#131417] border border-white/10 shadow-inner">
+                <div className="mb-2 max-w-[240px] mx-auto rounded-2xl overflow-hidden p-1.5 bg-gray-100 border border-gray-200 shadow-inner">
                   <ProvincialPlate
                     provinceCode={provinceCode}
                     plateText={plate.trim() ? (plate.endsWith(provinceCode) ? plate : `${plate} ${provinceCode}`) : SA_PROVINCES.find((p) => p.code === provinceCode)?.plateExample}
@@ -497,10 +499,10 @@ export function VehiclesScreen() {
                     value={plate}
                     onChange={(e) => setPlate(e.target.value.toUpperCase())}
                     placeholder={provinceCode === 'GP' ? 'e.g. AB 12 CD GP' : provinceCode === 'WC' ? 'e.g. CA 123-456' : 'e.g. 123-456'}
-                    className="w-full text-center py-2.5 px-3 bg-[#131417] border border-white/10 focus:border-white/30 focus:bg-[#17181D] rounded-xl text-sm font-mono font-black text-white placeholder:text-white/30 focus:outline-none uppercase transition-all"
+                    className="w-full text-center py-2.5 px-3 bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#B81D39] focus:ring-2 focus:ring-[#B81D39]/20 rounded-xl text-sm font-mono font-black text-gray-950 placeholder:text-gray-400 focus:outline-none uppercase transition-all"
                   />
                   <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <span className="text-[10px] font-mono font-bold bg-[#222428] text-white/80 border border-white/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-mono font-bold bg-white text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded shadow-2xs">
                       {provinceCode}
                     </span>
                   </div>
@@ -509,7 +511,7 @@ export function VehiclesScreen() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                     Make
                   </label>
                   <input
@@ -517,11 +519,11 @@ export function VehiclesScreen() {
                     value={make}
                     onChange={(e) => setMake(e.target.value)}
                     placeholder="e.g. Ford"
-                    className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                    className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                     Model
                   </label>
                   <input
@@ -529,13 +531,13 @@ export function VehiclesScreen() {
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
                     placeholder="e.g. Fiesta"
-                    className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                    className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Colour
                 </label>
                 <input
@@ -543,7 +545,7 @@ export function VehiclesScreen() {
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
                   placeholder="e.g. Metallic Grey"
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 />
               </div>
 
@@ -551,7 +553,7 @@ export function VehiclesScreen() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !plate.trim()}
-                  className="w-full py-3.5 bg-white hover:bg-gray-100 text-gray-950 font-bold text-xs rounded-2xl shadow-lg transition-all active:scale-[0.99] disabled:opacity-40 cursor-pointer"
+                  className="w-full py-3.5 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-900/20 transition-all active:scale-[0.99] disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSubmitting ? 'Registering...' : 'Register as Driver'}
                 </button>
@@ -563,41 +565,44 @@ export function VehiclesScreen() {
 
       {/* OWNERSHIP PROOF MODAL (Rule 4: Paid plan check + Admin review) */}
       {isOwnershipDocOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
-          <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
+          <div className="pro-form-card text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-gray-100 max-h-[90vh] overflow-y-auto">
             <button
+              type="button"
               onClick={() => setIsOwnershipDocOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close modal"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="pro-squircle mb-3.5">
-              <FileText className="w-6 h-6 text-white" />
+              <FileText className="w-6 h-6 text-[#941329]" />
             </div>
 
-            <h2 className="text-xl font-bold font-display text-white tracking-tight">
+            <h2 className="text-xl font-bold font-display text-gray-950 tracking-tight">
               Submit Ownership Proof
             </h2>
-            <p className="text-xs text-white/60 mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               To become the verified owner, submit your V5C registration or vehicle title. An admin will review it.
             </p>
 
             {/* Rule 4: Paying never automatically grants ownership */}
-            <div className="mt-3 p-3 bg-[#131417] rounded-2xl text-xs text-amber-200 leading-relaxed border border-amber-500/30">
-              <strong className="text-amber-100">Important Rule:</strong> Paying for an Owner Plan does not automatically make you the owner. Documents must be verified by a compliance admin.
+            <div className="mt-3 p-3 bg-amber-50 rounded-2xl text-xs text-amber-900 leading-relaxed border border-amber-200">
+              <strong className="text-amber-950">Important Rule:</strong> Paying for an Owner Plan does not automatically make you the owner. Documents must be verified by a compliance admin.
             </div>
 
             {docFeedback?.error && (
-              <div className="mt-3 p-3 bg-rose-500/20 text-rose-200 border border-rose-500/30 rounded-2xl text-xs space-y-2">
+              <div className="mt-3 p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-xs space-y-2 font-medium">
                 <p>{docFeedback.error}</p>
                 {docFeedback.requiresUpgrade && (
                   <button
+                    type="button"
                     onClick={async () => {
                       await updateUserPreferences({ plan: 'paid_owner' });
                       setDocFeedback({ message: 'Upgraded to Paid Owner Plan! Now click submit below.' });
                     }}
-                    className="w-full py-2 bg-white text-gray-950 font-bold text-xs rounded-xl"
+                    className="w-full py-2 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
                   >
                     Upgrade to Paid Owner Plan (R49/mo)
                   </button>
@@ -606,29 +611,29 @@ export function VehiclesScreen() {
             )}
 
             {docFeedback?.message && (
-              <div className="mt-3 p-3 bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 rounded-2xl text-xs">
+              <div className="mt-3 p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-medium">
                 {docFeedback.message}
               </div>
             )}
 
             <form onSubmit={handleSubmitDoc} className="mt-4 space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Document Type
                 </label>
                 <select
                   value={docType}
                   onChange={(e) => setDocType(e.target.value)}
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 >
-                  <option value="v5c_logbook" className="bg-[#1A1C20] text-white">V5C Registration Certificate (Logbook)</option>
-                  <option value="title_certificate" className="bg-[#1A1C20] text-white">Vehicle Title / Certificate</option>
-                  <option value="bill_of_sale" className="bg-[#1A1C20] text-white">Bill of Sale with Insurance Document</option>
+                  <option value="v5c_logbook" className="bg-white text-gray-900">V5C Registration Certificate (Logbook)</option>
+                  <option value="title_certificate" className="bg-white text-gray-900">Vehicle Title / Certificate</option>
+                  <option value="bill_of_sale" className="bg-white text-gray-900">Bill of Sale with Insurance Document</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Document File Name
                 </label>
                 <input
@@ -637,12 +642,12 @@ export function VehiclesScreen() {
                   value={docName}
                   onChange={(e) => setDocName(e.target.value)}
                   placeholder="e.g. V5C_Logbook.pdf"
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 />
               </div>
 
-              <div className="p-3.5 border border-dashed border-white/15 bg-[#131417] rounded-2xl text-center text-xs text-white/50">
-                <UploadCloud className="w-5 h-5 mx-auto text-white/40 mb-1" />
+              <div className="p-3.5 border border-dashed border-gray-300 bg-gray-50 rounded-2xl text-center text-xs text-gray-500">
+                <UploadCloud className="w-5 h-5 mx-auto text-gray-400 mb-1" />
                 <span>Simulated Secure Document Attachment</span>
               </div>
 
@@ -650,7 +655,7 @@ export function VehiclesScreen() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 bg-white hover:bg-gray-100 text-gray-950 font-bold text-xs rounded-2xl disabled:opacity-40 shadow-lg transition-all active:scale-[0.99] cursor-pointer"
+                  className="w-full py-3.5 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none shadow-lg shadow-red-900/20 transition-all active:scale-[0.99] cursor-pointer"
                 >
                   {isSubmitting ? 'Submitting to Admin...' : 'Submit for Admin Review'}
                 </button>
@@ -662,29 +667,31 @@ export function VehiclesScreen() {
 
       {/* ADD TRUSTED CONTACT MODAL (Rule 5: with consent) */}
       {isAddContactOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
-          <div className="pro-form-card text-white rounded-[32px] max-w-sm w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative border border-white/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in">
+          <div className="pro-form-card text-gray-950 rounded-[32px] max-w-sm w-full p-6 shadow-2xl relative border border-gray-100 max-h-[90vh] overflow-y-auto">
             <button
+              type="button"
               onClick={() => setIsAddContactOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close modal"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="pro-squircle mb-3.5">
-              <UserPlus className="w-6 h-6 text-white" />
+              <UserPlus className="w-6 h-6 text-[#941329]" />
             </div>
 
-            <h2 className="text-xl font-bold font-display text-white tracking-tight">
+            <h2 className="text-xl font-bold font-display text-gray-950 tracking-tight">
               Add Trusted Contact
             </h2>
-            <p className="text-xs text-white/60 mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               Trusted contacts receive a copy of safety alerts for this vehicle.
             </p>
 
             <form onSubmit={handleAddContact} className="mt-4 space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Contact Name
                 </label>
                 <input
@@ -693,12 +700,12 @@ export function VehiclesScreen() {
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
                   placeholder="e.g. Sarah Morgan"
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Mobile Phone Number
                 </label>
                 <input
@@ -707,12 +714,12 @@ export function VehiclesScreen() {
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="+27 82 555 0321"
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-white/60 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Relationship
                 </label>
                 <input
@@ -720,18 +727,18 @@ export function VehiclesScreen() {
                   value={relationship}
                   onChange={(e) => setRelationship(e.target.value)}
                   placeholder="e.g. Spouse / Fleet Partner"
-                  className="w-full p-2.5 text-xs bg-[#131417] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:bg-[#17181D] focus:outline-none focus:border-white/30"
+                  className="w-full p-2.5 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#B81D39]/20 focus:border-[#B81D39] transition-all"
                 />
               </div>
 
               {/* Consent checkbox (Rule 5 requirement) */}
-              <label className="flex items-start gap-2.5 p-3 bg-[#131417] border border-white/10 rounded-2xl text-xs text-white/70 cursor-pointer">
+              <label className="flex items-start gap-2.5 p-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   required
                   checked={consentGiven}
                   onChange={(e) => setConsentGiven(e.target.checked)}
-                  className="mt-0.5 accent-white rounded"
+                  className="mt-0.5 accent-[#941329] rounded"
                 />
                 <span>
                   I confirm this person has given explicit consent to receive vehicle notifications on their mobile.
@@ -742,7 +749,7 @@ export function VehiclesScreen() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !consentGiven}
-                  className="w-full py-3.5 bg-white hover:bg-gray-100 text-gray-950 font-bold text-xs rounded-2xl disabled:opacity-40 shadow-lg transition-all active:scale-[0.99] cursor-pointer"
+                  className="w-full py-3.5 bg-[#941329] hover:bg-[#7a0f21] text-white font-bold text-xs rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none shadow-lg shadow-red-900/20 transition-all active:scale-[0.99] cursor-pointer"
                 >
                   {isSubmitting ? 'Saving...' : 'Add Trusted Contact'}
                 </button>

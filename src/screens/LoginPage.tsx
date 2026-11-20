@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.js';
 import {
   ShieldCheck,
@@ -14,9 +14,22 @@ import {
   MapPin,
   Car,
   X,
+  Database,
+  Terminal,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { ProvincialPlate } from '../components/ProvincialPlate.js';
 import { DriverPingLoader } from '../components/DriverPingLoader.js';
+
+interface DiagnosticLog {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'success' | 'warn' | 'error';
+  category: string;
+  message: string;
+  details?: any;
+}
 
 const PROVINCES = [
   { code: 'GP', name: 'Gauteng', plateSuffix: 'GP' },
@@ -31,7 +44,47 @@ const PROVINCES = [
 ];
 
 export function LoginPage() {
-  const { loginAsDemo, loginWithEmail, updateUserPreferences, registerVehicle, isLoading } = useApp();
+  const {
+    loginAsDemo,
+    loginWithEmail,
+    updateUserPreferences,
+    registerVehicle,
+    isLoading,
+  } = useApp();
+
+  const [supabaseDiagnostic, setSupabaseDiagnostic] = useState<{
+    connectedToPostgres?: boolean;
+    checkedAt?: string;
+    driver?: string;
+  } | null>(null);
+
+  const [authDiagnosticLogs, setAuthDiagnosticLogs] = useState<DiagnosticLog[]>([]);
+
+  const clearDiagnosticLogs = () => setAuthDiagnosticLogs([]);
+
+  const fetchSupabaseStatus = async () => {
+    try {
+      const res = await fetch('/api/db-status', { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const data = await res.json();
+        setSupabaseDiagnostic({
+          connectedToPostgres: data.database?.connectedToPostgres,
+          checkedAt: new Date().toLocaleTimeString(),
+          driver: data.database?.driver,
+        });
+      }
+    } catch {
+      setSupabaseDiagnostic({
+        connectedToPostgres: false,
+        checkedAt: new Date().toLocaleTimeString(),
+        driver: 'In-Memory Fallback',
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSupabaseStatus();
+  }, []);
 
   // Mode: Sign In or Sign Up
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -41,6 +94,10 @@ export function LoginPage() {
   // Sign In / Registration Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Diagnostic panel toggle
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
 
   // Step 2 Onboarding Fields
   const [firstName, setFirstName] = useState('');
@@ -60,6 +117,7 @@ export function LoginPage() {
     title: string;
     message: string;
     isUnregistered?: boolean;
+    rawError?: string;
   }>({ title: '', message: '' });
 
   const handleDemoSubmit = async (demoUserId: string = 'usr_alex_001') => {
@@ -235,6 +293,127 @@ export function LoginPage() {
           <p className="text-sm text-white/80 font-medium max-w-xs mx-auto leading-snug">
             Look out for each other on the road. Anonymous vehicle condition and safety alerts.
           </p>
+        </div>
+
+        {/* Supabase Client Diagnostic Banner & Log Console */}
+        <div className="space-y-2">
+          <div className="bg-black/40 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-lg space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-emerald-400" />
+                <span className="font-extrabold text-white">Supabase Client Diagnostic Status</span>
+                <span className={`w-2.5 h-2.5 rounded-full ${supabaseDiagnostic?.connectedToPostgres ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setRefreshingStatus(true);
+                    await fetchSupabaseStatus();
+                    setRefreshingStatus(false);
+                  }}
+                  disabled={refreshingStatus}
+                  className="p-1 hover:bg-white/10 rounded text-white/70 hover:text-white transition-colors cursor-pointer"
+                  title="Refresh Supabase connection status"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${refreshingStatus ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDiagnostics(!showDiagnostics)}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-extrabold text-white flex items-center gap-1.5 cursor-pointer transition-colors border border-white/10"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>Diagnostics ({authDiagnosticLogs.length})</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-white/80 font-medium flex items-center justify-between">
+              <span>
+                {supabaseDiagnostic?.connectedToPostgres
+                  ? '✅ PostgreSQL & system_config table active'
+                  : '⚠️ Local database mode'}
+              </span>
+              <span className="text-[10px] text-white/50">{supabaseDiagnostic?.checkedAt || 'Checked'}</span>
+            </div>
+          </div>
+
+          {/* Diagnostic Log Terminal Drawer */}
+          {showDiagnostics && (
+            <div className="bg-gray-950 text-emerald-400 rounded-2xl p-3.5 border border-emerald-500/30 font-mono text-[11px] shadow-2xl space-y-2.5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center gap-2 text-white font-bold">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  <span>Sign-In & Supabase Diagnostic Log</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearDiagnosticLogs}
+                    className="text-red-400 hover:text-red-300 flex items-center gap-1 text-[10px] font-sans font-bold cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Clear Logs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDiagnostics(false)}
+                    className="text-gray-400 hover:text-white cursor-pointer font-sans text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 selection:bg-emerald-900 selection:text-white">
+                {authDiagnosticLogs.length === 0 ? (
+                  <div className="text-gray-500 italic py-3 text-center font-sans">
+                    No sign-in diagnostic logs captured yet. Perform a sign-in or demo login to inspect real-time traces.
+                  </div>
+                ) : (
+                  authDiagnosticLogs.map((log) => (
+                    <div key={log.id} className="p-2 rounded-xl bg-black/60 border border-white/5 space-y-1">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-gray-400">{log.timestamp}</span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-extrabold text-[9px] uppercase ${
+                            log.level === 'error'
+                              ? 'bg-red-950 text-red-400 border border-red-800/50'
+                              : log.level === 'success'
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/50'
+                              : log.level === 'warn'
+                              ? 'bg-amber-950 text-amber-300 border border-amber-800/50'
+                              : 'bg-cyan-950 text-cyan-300 border border-cyan-800/50'
+                          }`}
+                        >
+                          {log.category}
+                        </span>
+                      </div>
+                      <div
+                        className={`font-semibold leading-tight text-xs ${
+                          log.level === 'error'
+                            ? 'text-red-300'
+                            : log.level === 'success'
+                            ? 'text-emerald-300'
+                            : log.level === 'warn'
+                            ? 'text-amber-200'
+                            : 'text-cyan-200'
+                        }`}
+                      >
+                        {log.message}
+                      </div>
+                      {log.details && (
+                        <pre className="text-[10px] text-gray-400 bg-gray-900/90 p-1.5 rounded-lg overflow-x-auto">
+                          {JSON.stringify(log.details, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Floating Auth Card */}
@@ -723,6 +902,18 @@ export function LoginPage() {
             </div>
 
             <div className="space-y-2 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowErrorPopup(false);
+                  setShowDiagnostics(true);
+                }}
+                className="w-full py-2 px-3 bg-gray-900 text-cyan-300 font-mono text-[11px] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer hover:bg-gray-800 transition-colors border border-cyan-500/30 shadow-xs"
+              >
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Inspect Diagnostic Logs ({authDiagnosticLogs.length})</span>
+              </button>
+
               {popupData.isUnregistered && (
                 <button
                   type="button"

@@ -1,16 +1,23 @@
 import 'dotenv/config';
 import pg from 'pg';
+import { normalizePostgresConnectionString } from '../src/server/db.js';
 
 const { Pool } = pg;
 
 async function checkDatabaseConnection() {
-  const connectionString =
+  const rawConnectionString =
     process.env.DATABASE_URL ||
     process.env.SUPABASE_DB_URL ||
     process.env.POSTGRES_URL;
 
-  if (!connectionString) {
+  if (!rawConnectionString) {
     console.error('ERROR: DATABASE_URL is not set in environment or .env');
+    process.exit(1);
+  }
+
+  const { url: connectionString, reason } = normalizePostgresConnectionString(rawConnectionString);
+  if (!connectionString) {
+    console.error(`ERROR: Invalid DATABASE_URL: ${reason || 'Unknown format error'}`);
     process.exit(1);
   }
 
@@ -55,7 +62,18 @@ async function checkDatabaseConnection() {
 
     console.log('\n[4/4] Verifying table data counts...');
     const counts: Record<string, number> = {};
-    for (const t of ['users', 'vehicles', 'vehicle_drivers', 'reports', 'delivery_logs', 'audit_logs']) {
+    for (const t of [
+      'users',
+      'otps',
+      'vehicles',
+      'vehicle_drivers',
+      'trusted_contacts',
+      'ownership_verifications',
+      'reports',
+      'delivery_logs',
+      'audit_logs',
+      'system_config',
+    ]) {
       if (tableNames.includes(t)) {
         const countRes = await client.query(`SELECT COUNT(*) as cnt FROM ${t}`);
         counts[t] = parseInt(countRes.rows[0].cnt, 10);

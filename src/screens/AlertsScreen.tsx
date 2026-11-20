@@ -26,9 +26,9 @@ import {
 import { ProvincialPlate, detectProvinceFromPlate } from '../components/ProvincialPlate.js';
 
 export function AlertsScreen() {
-  const { alerts, takeAlertAction, refreshAlerts, theme } = useApp();
+  const { alerts, takeAlertAction, refreshAlerts } = useApp();
 
-  const isDark = theme === 'dark';
+  const isDark = false;
 
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);

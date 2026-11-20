@@ -229,7 +229,7 @@ export function SettingsScreen() {
         )}
       </div>
 
-      {/* 3. Primary Feature: DEFAULT NUMBER PLATE SETTINGS */}
+      {/* 2. Primary Feature: DEFAULT NUMBER PLATE SETTINGS */}
       <div className="glass-card rounded-[34px] p-6 crimson-card-shadow relative overflow-hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">

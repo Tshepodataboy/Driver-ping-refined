@@ -16,9 +16,16 @@ export function Header() {
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [draftCount, setDraftCount] = useState<number>(() => loadDrafts().length);
 
-  // Keep the drafts badge in sync with navigation and the drafts panel.
+  // Keep the drafts badge in sync with navigation, the drafts panel, and draft saves.
   useEffect(() => {
-    setDraftCount(loadDrafts().length);
+    const syncCount = () => setDraftCount(loadDrafts().length);
+    syncCount();
+    window.addEventListener('driver-ping-drafts-changed', syncCount);
+    window.addEventListener('storage', syncCount);
+    return () => {
+      window.removeEventListener('driver-ping-drafts-changed', syncCount);
+      window.removeEventListener('storage', syncCount);
+    };
   }, [activeTab, draftsOpen]);
 
   return (

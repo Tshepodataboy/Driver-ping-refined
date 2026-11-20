@@ -15,6 +15,8 @@ export interface User {
   smsCurrentSpendPence: number;
   defaultPlate?: string;
   defaultProvinceCode?: string;
+  homeProvince?: string;
+  homeCity?: string;
   createdAt: string;
 }
 

@@ -25,6 +25,8 @@ export interface DbUser {
   smsCurrentSpendPence: number;
   defaultPlate?: string;
   defaultProvinceCode?: string;
+  homeProvince?: string;
+  homeCity?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,6 +124,210 @@ export interface DbAuditLog {
   createdAt: string;
 }
 
+export interface DbSystemConfig {
+  keyName: string;
+  keyValue: string;
+  category: string;
+  description: string;
+  updatedAt: string;
+}
+
+export interface DbMapHazard {
+  id: string;
+  kind: 'pothole' | 'accident' | 'traffic' | 'alert';
+  title: string;
+  description: string;
+  area: string;
+  province: string;
+  lat: number;
+  lon: number;
+  severity: 'low' | 'medium' | 'high';
+  confirmations: number;
+  falseReportCount: number;
+  beingSolvedCount: number;
+  isUserPinned?: boolean;
+  createdAt: string;
+}
+
+const SEED_MAP_HAZARDS: DbMapHazard[] = [
+  {
+    id: 'hz_gp_n1_allandale',
+    kind: 'traffic',
+    title: 'N1 Northbound Bottleneck',
+    description: 'Heavy lane merge congestion approaching Allandale offramp.',
+    area: 'Midrand / Allandale, GP',
+    province: 'GP',
+    lat: -25.9992,
+    lon: 28.1173,
+    severity: 'high',
+    confirmations: 14,
+    falseReportCount: 1,
+    beingSolvedCount: 3,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 18 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_gp_m1_grayston',
+    kind: 'pothole',
+    title: 'Deep Shoulder Pothole',
+    description: 'Left lane surface break near Grayston Drive offramp — stay right.',
+    area: 'Sandton / M1, GP',
+    province: 'GP',
+    lat: -26.0987,
+    lon: 28.0672,
+    severity: 'medium',
+    confirmations: 9,
+    falseReportCount: 0,
+    beingSolvedCount: 2,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 52 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_gp_n12_gilloolys',
+    kind: 'accident',
+    title: 'Multi-Vehicle Fender Bender',
+    description: 'Two lanes obstructed on N12 Westbound approaching Gilloolys interchange.',
+    area: 'Bedfordview, GP',
+    province: 'GP',
+    lat: -26.1705,
+    lon: 28.1445,
+    severity: 'high',
+    confirmations: 21,
+    falseReportCount: 1,
+    beingSolvedCount: 6,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 9 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_wc_n1_century',
+    kind: 'traffic',
+    title: 'Inbound Cape Town Queue',
+    description: 'Slow moving traffic past Sable Square towards CBD.',
+    area: 'Century City / N1, WC',
+    province: 'WC',
+    lat: -33.8926,
+    lon: 18.5084,
+    severity: 'medium',
+    confirmations: 11,
+    falseReportCount: 1,
+    beingSolvedCount: 2,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 27 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_wc_m3_hospital',
+    kind: 'pothole',
+    title: 'Road Surface Subsidence',
+    description: 'Uneven tar patch near Hospital Bend merge.',
+    area: 'Observatory / M3, WC',
+    province: 'WC',
+    lat: -33.9438,
+    lon: 18.4648,
+    severity: 'low',
+    confirmations: 6,
+    falseReportCount: 0,
+    beingSolvedCount: 1,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 85 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_kzn_n3_spaghetti',
+    kind: 'accident',
+    title: 'Truck Breakdown & Lane Closure',
+    description: 'Heavy freight stationary on N3 Eastbound near EB Cloete interchange.',
+    area: 'Westville / N3, KZN',
+    province: 'KZN',
+    lat: -29.8321,
+    lon: 30.9317,
+    severity: 'high',
+    confirmations: 16,
+    falseReportCount: 0,
+    beingSolvedCount: 5,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_kzn_m4_umhlanga',
+    kind: 'pothole',
+    title: 'Coastal Erosion Pothole',
+    description: 'Outer left lane caution heading north past La Lucia.',
+    area: 'Umhlanga / M4, KZN',
+    province: 'KZN',
+    lat: -29.7495,
+    lon: 31.0695,
+    severity: 'medium',
+    confirmations: 5,
+    falseReportCount: 1,
+    beingSolvedCount: 1,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 110 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_ec_n2_gq',
+    kind: 'traffic',
+    title: 'Settlers Way Delays',
+    description: 'Peak congestion between Mount Road and Walmer Boulevard.',
+    area: 'Gqeberha / N2, EC',
+    province: 'EC',
+    lat: -33.9583,
+    lon: 25.6054,
+    severity: 'medium',
+    confirmations: 7,
+    falseReportCount: 0,
+    beingSolvedCount: 2,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 40 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_fs_n1_bloem',
+    kind: 'pothole',
+    title: 'N1 Toll Approach Potholes',
+    description: 'Series of potholes in slow lane 4 km south of Bloemfontein.',
+    area: 'Bloemfontein / N1, FS',
+    province: 'FS',
+    lat: -29.1381,
+    lon: 26.1852,
+    severity: 'medium',
+    confirmations: 4,
+    falseReportCount: 0,
+    beingSolvedCount: 1,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 95 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_mp_n4_mbombela',
+    kind: 'traffic',
+    title: 'Schoemanskloof Stop/Go',
+    description: 'Scheduled roadwork convoy alternating single-lane passage.',
+    area: 'Mbombela / N4, MP',
+    province: 'MP',
+    lat: -25.4393,
+    lon: 30.6789,
+    severity: 'medium',
+    confirmations: 8,
+    falseReportCount: 0,
+    beingSolvedCount: 4,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 64 * 60000).toISOString(),
+  },
+  {
+    id: 'hz_lp_n1_polokwane',
+    kind: 'pothole',
+    title: 'R101 / N1 Bypass Pothole',
+    description: 'Sharp edge pothole near Polokwane southern bypass junction.',
+    area: 'Polokwane, LP',
+    province: 'LP',
+    lat: -23.9242,
+    lon: 29.4426,
+    severity: 'medium',
+    confirmations: 5,
+    falseReportCount: 1,
+    beingSolvedCount: 0,
+    isUserPinned: false,
+    createdAt: new Date(Date.now() - 75 * 60000).toISOString(),
+  },
+];
+
 // Initial Seed Data for Demo & Supabase Bootstrapping
 const SEED_USERS: DbUser[] = [
   {
@@ -135,6 +341,8 @@ const SEED_USERS: DbUser[] = [
     smsCurrentSpendPence: 20,
     defaultPlate: 'CK 45 DF GP',
     defaultProvinceCode: 'GP',
+    homeProvince: 'GP',
+    homeCity: 'Johannesburg',
     createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -149,6 +357,8 @@ const SEED_USERS: DbUser[] = [
     smsCurrentSpendPence: 0,
     defaultPlate: 'ND 913-317 ZN',
     defaultProvinceCode: 'KZN',
+    homeProvince: 'ZN',
+    homeCity: 'Durban',
     createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -163,6 +373,8 @@ const SEED_USERS: DbUser[] = [
     smsCurrentSpendPence: 0,
     defaultPlate: '',
     defaultProvinceCode: 'WC',
+    homeProvince: 'WC',
+    homeCity: 'Cape Town',
     createdAt: new Date(Date.now() - 60 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -463,12 +675,43 @@ const SEED_AUDIT_LOGS: DbAuditLog[] = [
   },
 ];
 
+const SEED_SYSTEM_CONFIGS: DbSystemConfig[] = [
+  {
+    keyName: 'google_cloud_project_id',
+    keyValue: process.env.GOOGLE_CLOUD_PROJECT || 'dzer32gve6ghcxunsish2k',
+    category: 'google_cloud',
+    description: 'Google Cloud Platform Project ID hosting the AI Studio applet',
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    keyName: 'google_cloud_project_number',
+    keyValue: process.env.GOOGLE_CLOUD_PROJECT_NUMBER || '69290944445',
+    category: 'google_cloud',
+    description: 'Google Cloud Platform Project Number hosting the AI Studio applet',
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    keyName: 'google_cloud_project_name',
+    keyValue: 'Driver Ping',
+    category: 'google_cloud',
+    description: 'Google Cloud Platform Project Name',
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    keyName: 'gemini_active_models',
+    keyValue: 'gemini-3.1-flash-lite,gemini-4-hydrogen',
+    category: 'ai_models',
+    description: 'Supported server-side multimodal Gemini models with automatic fallback',
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 /**
  * Normalizes and validates PostgreSQL connection strings.
  * Protects against truncated environment variables (e.g. missing protocol prefix),
  * non-encoded special characters, and dummy 'base' hostnames generated by pg-connection-string.
  */
-function normalizePostgresConnectionString(raw?: string): { url?: string; reason?: string } {
+export function normalizePostgresConnectionString(raw?: string): { url?: string; reason?: string } {
   if (!raw || typeof raw !== 'string') return {};
   let str = raw.trim();
 
@@ -492,6 +735,27 @@ function normalizePostgresConnectionString(raw?: string): { url?: string; reason
       return { reason: 'Invalid connection string format: missing protocol prefix and @ delimiter' };
     }
   }
+
+  // Safely URL-encode special characters in password before parsing URL
+  try {
+    const protoMatch = str.match(/^(postgres(?:ql)?:\/\/)(.*)$/);
+    if (protoMatch) {
+      const proto = protoMatch[1];
+      const rest = protoMatch[2];
+      const lastAt = rest.lastIndexOf('@');
+      if (lastAt !== -1) {
+        const authPart = rest.slice(0, lastAt);
+        const hostDbPart = rest.slice(lastAt + 1);
+        const firstColon = authPart.indexOf(':');
+        if (firstColon !== -1) {
+          const user = authPart.slice(0, firstColon);
+          const rawPass = authPart.slice(firstColon + 1);
+          const encodedPass = rawPass.includes('%') ? rawPass : encodeURIComponent(rawPass);
+          str = `${proto}${user}:${encodedPass}@${hostDbPart}`;
+        }
+      }
+    }
+  } catch {}
 
   try {
     const parsed = new URL(str);
@@ -537,6 +801,9 @@ class DatabaseService {
     reports: [...SEED_REPORTS],
     deliveryLogs: [...SEED_DELIVERY_LOGS],
     auditLogs: [...SEED_AUDIT_LOGS],
+    systemConfigs: [...SEED_SYSTEM_CONFIGS],
+    mapHazards: [...SEED_MAP_HAZARDS],
+    mapHazardVotes: {} as Record<string, { unsolved: boolean; false_report: boolean; being_solved: boolean }>,
   };
 
   constructor() {
@@ -573,7 +840,12 @@ class DatabaseService {
         ssl: {
           rejectUnauthorized: false,
         },
-        connectionTimeoutMillis: 5000,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        keepAlive: true,
+        connectionTimeoutMillis: 8000,
+        query_timeout: 8000,
+        statement_timeout: 8000,
       });
 
       // Handle unexpected pool client errors gracefully
@@ -581,17 +853,26 @@ class DatabaseService {
         console.warn('⚠️ [Driver Ping DB] Background pool connection notice:', poolErr?.message || poolErr);
       });
 
-      // Test connection
-      const client = await this.pool.connect();
-      const testRes = await client.query('SELECT NOW() as current_time, version()');
+      // Test connection with 8000ms timeout for cross-region Supabase pooler handshake
+      const connectTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PostgreSQL connection attempt timed out after 8000ms')), 8000)
+      );
+
+      const client = await Promise.race([this.pool.connect(), connectTimeout]);
+      const testRes = await client.query('SELECT NOW() as current_time');
       client.release();
 
       this.isConnected = true;
       this.connectionError = null;
       console.log(`✅ [Driver Ping DB] Connected to Supabase PostgreSQL successfully at ${testRes.rows[0].current_time}`);
 
-      // Run schema migrations and seeds
-      await this.bootstrapSchema();
+      // Run schema migrations and seeds with 10000ms timeout
+      const schemaTimeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('Schema bootstrap timed out')), 10000)
+      );
+      await Promise.race([this.bootstrapSchema(), schemaTimeout]).catch((schemaErr) => {
+        console.warn('⚠️ [Driver Ping DB] Schema bootstrap notice:', schemaErr?.message || schemaErr);
+      });
     } catch (err: any) {
       this.isConnected = false;
       this.connectionError = err.message || String(err);
@@ -606,7 +887,12 @@ class DatabaseService {
 
   public async waitForInit(): Promise<void> {
     if (this.initPromise) {
-      await this.initPromise;
+      try {
+        const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 6000));
+        await Promise.race([this.initPromise, timeoutPromise]);
+      } catch {
+        // Non-fatal: in-memory store fallback remains active if PostgreSQL is unreachable
+      }
     }
   }
 
@@ -630,6 +916,42 @@ class DatabaseService {
   private async bootstrapSchema(): Promise<void> {
     if (!this.pool) return;
     try {
+      // Fast-path check: avoid redundant DDL + 30 sequential seed queries if Supabase is already initialized
+      const checkRes = await this.pool.query(`
+        SELECT
+          to_regclass('public.users') IS NOT NULL AS has_users,
+          to_regclass('public.system_config') IS NOT NULL AS has_config,
+          EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'reports' AND column_name = 'location'
+          ) AS has_report_location,
+          EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'password_hash'
+          ) AS has_password_hash
+      `);
+
+      const row = checkRes.rows[0] || {};
+      const alreadyInitialized = Boolean(
+        row.has_users && row.has_config && row.has_report_location && row.has_password_hash
+      );
+
+      if (alreadyInitialized) {
+        const seededRes = await this.pool.query(
+          `SELECT EXISTS(SELECT 1 FROM users WHERE id = 'usr_alex_001') AS has_seed`
+        );
+        if (seededRes.rows[0]?.has_seed) {
+          await this.pool.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS home_province VARCHAR(20);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS home_city VARCHAR(100);
+          `).catch(() => {});
+          await this.ensureSystemConfigs();
+          await this.ensureMapHazardsTable();
+          console.log('✅ [Driver Ping DB] Supabase schema & seed data verified (fast path).');
+          return;
+        }
+      }
+
       const schemaPath = path.resolve(__dirname, '../db/schema.sql');
       let schemaSql = '';
       if (fs.existsSync(schemaPath)) {
@@ -639,8 +961,12 @@ class DatabaseService {
       if (schemaSql) {
         console.log('🔄 [Driver Ping DB] Applying schema.sql to Supabase database...');
         await this.pool.query(schemaSql);
-        
-        await this.pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
+
+        await this.pool.query(`
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS home_province VARCHAR(20);
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS home_city VARCHAR(100);
+        `);
 
         // Ensure column size migrations for email/phone support & demo alert photo backfill
         await this.pool.query(`
@@ -658,16 +984,14 @@ class DatabaseService {
         `).catch(() => {});
 
         console.log('✅ [Driver Ping DB] Database tables & migrations verified & ready.');
+        await this.ensureSystemConfigs();
       }
 
-      // Check if users table is populated; if empty, seed demo data
-      const checkUsers = await this.pool.query('SELECT COUNT(*) as count FROM users');
-      const count = parseInt(checkUsers.rows[0]?.count || '0', 10);
-      if (count === 0) {
-        console.log('🌱 [Driver Ping DB] Seeding initial demo users and vehicles into Supabase...');
-        await this.seedSupabaseData();
-        console.log('✅ [Driver Ping DB] Supabase database seeded successfully.');
-      }
+      // Ensure predefined demo users and vehicles exist in Supabase DB with ON CONFLICT DO NOTHING
+      console.log('🌱 [Driver Ping DB] Ensuring predefined demo users and vehicles are present in Supabase...');
+      await this.seedSupabaseData();
+      await this.ensureMapHazardsTable();
+      console.log('✅ [Driver Ping DB] Supabase database seed verification complete.');
     } catch (err: any) {
       console.warn('⚠️ [Driver Ping DB] Non-fatal notice during Supabase schema setup:', err.message);
     }
@@ -682,8 +1006,8 @@ class DatabaseService {
       // 1. Users
       for (const u of SEED_USERS) {
         await client.query(
-          `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
            ON CONFLICT (id) DO NOTHING`,
           [
             u.id,
@@ -696,6 +1020,8 @@ class DatabaseService {
             u.smsCurrentSpendPence,
             u.defaultPlate || '',
             u.defaultProvinceCode || '',
+            u.homeProvince || '',
+            u.homeCity || '',
             u.createdAt,
             u.updatedAt,
           ]
@@ -772,6 +1098,17 @@ class DatabaseService {
         );
       }
 
+      // 9. System Configs (Gemini Keys & Google Cloud Settings)
+      for (const sc of SEED_SYSTEM_CONFIGS) {
+        await client.query(
+          `INSERT INTO system_config (key_name, key_value, category, description, updated_at)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (key_name) DO UPDATE 
+           SET key_value = EXCLUDED.key_value, updated_at = NOW()`,
+          [sc.keyName, sc.keyValue, sc.category, sc.description, sc.updatedAt]
+        );
+      }
+
       await client.query('COMMIT');
     } catch (err: any) {
       await client.query('ROLLBACK');
@@ -781,13 +1118,91 @@ class DatabaseService {
     }
   }
 
+  public async ensureSystemConfigs(): Promise<void> {
+    await this.waitForInit();
+    if (!this.pool) return;
+    try {
+      for (const sc of SEED_SYSTEM_CONFIGS) {
+        await this.pool.query(
+          `INSERT INTO system_config (key_name, key_value, category, description, updated_at)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (key_name) DO UPDATE 
+           SET key_value = EXCLUDED.key_value, updated_at = NOW()`,
+          [sc.keyName, sc.keyValue, sc.category, sc.description, sc.updatedAt]
+        );
+      }
+      console.log('✅ [Driver Ping DB] Gemini API keys & Google Cloud project settings synchronized to Supabase system_config table.');
+    } catch (err: any) {
+      console.warn('⚠️ [Driver Ping DB] Notice during system_config setup:', err.message);
+    }
+  }
+
+  public async getSystemConfigs(): Promise<DbSystemConfig[]> {
+    await this.waitForInit();
+    if (this.isUsingPostgres()) {
+      const res = await this.pool!.query(
+        `SELECT key_name, key_value, category, description, updated_at FROM system_config ORDER BY category, key_name`
+      );
+      return res.rows.map((r) => ({
+        keyName: r.key_name,
+        keyValue: r.key_value,
+        category: r.category,
+        description: r.description,
+        updatedAt: r.updated_at,
+      }));
+    }
+    return this.memory.systemConfigs;
+  }
+
+  public async getSystemConfig(keyName: string): Promise<string | null> {
+    await this.waitForInit();
+    if (this.isUsingPostgres()) {
+      const res = await this.pool!.query(
+        `SELECT key_value FROM system_config WHERE key_name = $1`,
+        [keyName]
+      );
+      return res.rows[0]?.key_value || null;
+    }
+    const match = this.memory.systemConfigs.find((sc) => sc.keyName === keyName);
+    return match ? match.keyValue : null;
+  }
+
+  public async setSystemConfig(
+    keyName: string,
+    keyValue: string,
+    category: string = 'general',
+    description: string = ''
+  ): Promise<void> {
+    await this.waitForInit();
+    const now = new Date().toISOString();
+    if (this.isUsingPostgres()) {
+      await this.pool!.query(
+        `INSERT INTO system_config (key_name, key_value, category, description, updated_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (key_name) DO UPDATE
+         SET key_value = EXCLUDED.key_value, category = EXCLUDED.category, description = EXCLUDED.description, updated_at = NOW()`,
+        [keyName, keyValue, category, description, now]
+      );
+    } else {
+      const existing = this.memory.systemConfigs.find((sc) => sc.keyName === keyName);
+      if (existing) {
+        existing.keyValue = keyValue;
+        existing.category = category;
+        existing.description = description;
+        existing.updatedAt = now;
+      } else {
+        this.memory.systemConfigs.push({ keyName, keyValue, category, description, updatedAt: now });
+      }
+    }
+  }
+
   // USERS & AUTHENTICATION
 
   public async getUserById(id: string): Promise<DbUser | null> {
     await this.waitForInit();
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at
+        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at
          FROM users WHERE id = $1`,
         [id]
       );
@@ -802,14 +1217,14 @@ class DatabaseService {
     const cleanPhone = phone.trim();
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at
-         FROM users WHERE phone = $1`,
+        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at
+         FROM users WHERE LOWER(phone) = LOWER($1)`,
         [cleanPhone]
       );
       if (res.rows.length === 0) return null;
       return this.mapUserRow(res.rows[0]);
     }
-    return this.memory.users.find((u) => u.phone === cleanPhone) || null;
+    return this.memory.users.find((u) => u.phone.toLowerCase() === cleanPhone.toLowerCase()) || null;
   }
 
   public async getPasswordHash(email: string): Promise<string | null> {
@@ -844,6 +1259,8 @@ class DatabaseService {
     smsMonthlyCapPence?: number;
     defaultPlate?: string;
     defaultProvinceCode?: string;
+    homeProvince?: string;
+    homeCity?: string;
   }): Promise<DbUser> {
     await this.waitForInit();
     const id = data.id || `usr_${Date.now()}`;
@@ -855,14 +1272,16 @@ class DatabaseService {
     const smsMonthlyCapPence = data.smsMonthlyCapPence || 500;
     const defaultPlate = data.defaultPlate ? data.defaultPlate.trim().toUpperCase() : '';
     const defaultProvinceCode = data.defaultProvinceCode ? data.defaultProvinceCode.trim().toUpperCase() : '';
+    const homeProvince = data.homeProvince ? data.homeProvince.trim().toUpperCase() : '';
+    const homeCity = data.homeCity ? data.homeCity.trim() : '';
     const now = new Date().toISOString();
 
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11)
-         RETURNING id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at`,
-        [id, cleanPhone, fullName, role, plan, smsOptIn, smsMonthlyCapPence, defaultPlate, defaultProvinceCode, now, now]
+        `INSERT INTO users (id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13)
+         RETURNING id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at`,
+        [id, cleanPhone, fullName, role, plan, smsOptIn, smsMonthlyCapPence, defaultPlate, defaultProvinceCode, homeProvince, homeCity, now, now]
       );
       return this.mapUserRow(res.rows[0]);
     }
@@ -878,6 +1297,8 @@ class DatabaseService {
       smsCurrentSpendPence: 0,
       defaultPlate: defaultPlate || undefined,
       defaultProvinceCode: defaultProvinceCode || undefined,
+      homeProvince: homeProvince || undefined,
+      homeCity: homeCity || undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -896,6 +1317,8 @@ class DatabaseService {
       phone?: string;
       defaultPlate?: string;
       defaultProvinceCode?: string;
+      homeProvince?: string;
+      homeCity?: string;
     }
   ): Promise<DbUser | null> {
     await this.waitForInit();
@@ -913,13 +1336,15 @@ class DatabaseService {
       const newPhone = prefs.phone !== undefined && prefs.phone.trim() ? prefs.phone.trim() : user.phone;
       const newPlate = prefs.defaultPlate !== undefined ? prefs.defaultPlate.trim().toUpperCase() : user.defaultPlate;
       const newProv = prefs.defaultProvinceCode !== undefined ? prefs.defaultProvinceCode.trim().toUpperCase() : user.defaultProvinceCode;
+      const newHomeProv = prefs.homeProvince !== undefined ? prefs.homeProvince.trim().toUpperCase() : user.homeProvince;
+      const newHomeCity = prefs.homeCity !== undefined ? prefs.homeCity.trim() : user.homeCity;
 
       const res = await this.pool!.query(
         `UPDATE users
-         SET sms_opt_in = $1, sms_monthly_cap_pence = $2, sms_current_spend_pence = $3, plan = $4, full_name = $5, phone = $6, default_plate = $7, default_province_code = $8, updated_at = $9
-         WHERE id = $10
-         RETURNING id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at`,
-        [newSmsOptIn, newCap, newSpend, newPlan, newName, newPhone, newPlate || '', newProv || '', now, userId]
+         SET sms_opt_in = $1, sms_monthly_cap_pence = $2, sms_current_spend_pence = $3, plan = $4, full_name = $5, phone = $6, default_plate = $7, default_province_code = $8, home_province = $9, home_city = $10, updated_at = $11
+         WHERE id = $12
+         RETURNING id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at`,
+        [newSmsOptIn, newCap, newSpend, newPlan, newName, newPhone, newPlate || '', newProv || '', newHomeProv || '', newHomeCity || '', now, userId]
       );
       return this.mapUserRow(res.rows[0]);
     }
@@ -934,6 +1359,8 @@ class DatabaseService {
     if (prefs.phone !== undefined && prefs.phone.trim()) user.phone = prefs.phone.trim();
     if (prefs.defaultPlate !== undefined) user.defaultPlate = prefs.defaultPlate.trim().toUpperCase();
     if (prefs.defaultProvinceCode !== undefined) user.defaultProvinceCode = prefs.defaultProvinceCode.trim().toUpperCase();
+    if (prefs.homeProvince !== undefined) user.homeProvince = prefs.homeProvince.trim().toUpperCase() || undefined;
+    if (prefs.homeCity !== undefined) user.homeCity = prefs.homeCity.trim() || undefined;
     user.updatedAt = now;
     return user;
   }
@@ -942,14 +1369,16 @@ class DatabaseService {
     await this.waitForInit();
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, created_at, updated_at
+        `SELECT id, phone, full_name, role, plan, sms_opt_in, sms_monthly_cap_pence, sms_current_spend_pence, default_plate, default_province_code, home_province, home_city, created_at, updated_at
          FROM users
-         ORDER BY (CASE role WHEN 'admin' THEN 2 ELSE 1 END), id ASC
-         LIMIT 10`
+         WHERE id IN ('usr_alex_001', 'usr_jordan_002', 'usr_admin_003')
+         ORDER BY (CASE role WHEN 'admin' THEN 2 ELSE 1 END), id ASC`
       );
       return res.rows.map(this.mapUserRow);
     }
-    return this.memory.users;
+    return this.memory.users.filter((u) =>
+      ['usr_alex_001', 'usr_jordan_002', 'usr_admin_003'].includes(u.id)
+    );
   }
 
   // OTPS
@@ -1152,7 +1581,7 @@ class DatabaseService {
     const norm = plateNormalized.trim().toUpperCase().replace(/[\s-]/g, '');
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `SELECT DISTINCT u.id, u.phone, u.full_name, u.role, u.plan, u.sms_opt_in, u.sms_monthly_cap_pence, u.sms_current_spend_pence, u.default_plate, u.default_province_code, u.created_at, u.updated_at
+        `SELECT DISTINCT u.id, u.phone, u.full_name, u.role, u.plan, u.sms_opt_in, u.sms_monthly_cap_pence, u.sms_current_spend_pence, u.default_plate, u.default_province_code, u.home_province, u.home_city, u.created_at, u.updated_at
          FROM users u
          LEFT JOIN vehicle_drivers vd ON vd.user_id = u.id AND vd.status = 'approved'
          LEFT JOIN vehicles v ON v.id = vd.vehicle_id OR v.verified_owner_id = u.id
@@ -2072,6 +2501,417 @@ class DatabaseService {
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
+
+  // ==========================================================================
+  // LIVE MAP HAZARDS (PERSISTED IN SUPABASE POSTGRESQL + IN-MEMORY FALLBACK)
+  // ==========================================================================
+
+  private async ensureMapHazardsTable(): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS map_hazards (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          kind VARCHAR(20) NOT NULL CHECK (kind IN ('pothole', 'accident', 'traffic', 'alert')),
+          title VARCHAR(100) NOT NULL,
+          description TEXT,
+          area VARCHAR(120) NOT NULL,
+          province VARCHAR(10) NOT NULL DEFAULT 'GP',
+          lat DOUBLE PRECISION NOT NULL,
+          lon DOUBLE PRECISION NOT NULL,
+          severity VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high')),
+          confirmations INTEGER NOT NULL DEFAULT 1,
+          false_report_count INTEGER NOT NULL DEFAULT 0,
+          being_solved_count INTEGER NOT NULL DEFAULT 0,
+          reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          is_user_pinned BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_map_hazards_province_kind ON map_hazards(province, kind);
+        CREATE INDEX IF NOT EXISTS idx_map_hazards_created ON map_hazards(created_at DESC);
+        CREATE TABLE IF NOT EXISTS map_hazard_votes (
+          hazard_id TEXT NOT NULL REFERENCES map_hazards(id) ON DELETE CASCADE,
+          voter_key TEXT NOT NULL,
+          unsolved BOOLEAN NOT NULL DEFAULT false,
+          false_report BOOLEAN NOT NULL DEFAULT false,
+          being_solved BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (hazard_id, voter_key)
+        );
+      `);
+
+      await this.pool.query(`
+        ALTER TABLE map_hazard_votes ADD COLUMN IF NOT EXISTS unsolved BOOLEAN NOT NULL DEFAULT false;
+        ALTER TABLE map_hazard_votes ADD COLUMN IF NOT EXISTS false_report BOOLEAN NOT NULL DEFAULT false;
+        ALTER TABLE map_hazard_votes ADD COLUMN IF NOT EXISTS being_solved BOOLEAN NOT NULL DEFAULT false;
+      `);
+
+      await this.pool.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'map_hazard_votes' AND column_name = 'status'
+          ) THEN
+            ALTER TABLE map_hazard_votes ALTER COLUMN status DROP NOT NULL;
+            UPDATE map_hazard_votes
+            SET
+              unsolved = (status = 'unsolved'),
+              false_report = (status = 'false_report'),
+              being_solved = (status = 'being_solved')
+            WHERE status IS NOT NULL AND NOT (unsolved OR false_report OR being_solved);
+          END IF;
+        END $$;
+      `).catch(() => {});
+
+      const colCheck = await this.pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'map_hazards' AND column_name = 'false_report_count'`
+      );
+      const needsAnalysisBackfill = colCheck.rows.length === 0;
+      await this.pool.query(`
+        ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS false_report_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS being_solved_count INTEGER NOT NULL DEFAULT 0;
+      `);
+
+      const countRes = await this.pool.query('SELECT COUNT(*)::int AS cnt FROM map_hazards');
+      if (Number(countRes.rows[0]?.cnt || 0) === 0) {
+        for (const h of SEED_MAP_HAZARDS) {
+          await this.pool.query(
+            `INSERT INTO map_hazards (id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (id) DO NOTHING`,
+            [
+              h.id,
+              h.kind,
+              h.title,
+              h.description,
+              h.area,
+              h.province,
+              h.lat,
+              h.lon,
+              h.severity,
+              h.confirmations,
+              h.falseReportCount,
+              h.beingSolvedCount,
+              Boolean(h.isUserPinned),
+              h.createdAt,
+            ]
+          );
+        }
+      } else if (needsAnalysisBackfill) {
+        for (const h of SEED_MAP_HAZARDS) {
+          await this.pool.query(
+            `UPDATE map_hazards SET false_report_count = $2, being_solved_count = $3 WHERE id = $1`,
+            [h.id, h.falseReportCount, h.beingSolvedCount]
+          );
+        }
+      }
+    } catch (err: any) {
+      console.warn('⚠️ [Driver Ping DB] Notice during map_hazards setup:', err?.message || err);
+    }
+  }
+
+  private mapHazardRow(row: any): DbMapHazard {
+    return {
+      id: row.id,
+      kind: row.kind,
+      title: row.title,
+      description: row.description || '',
+      area: row.area,
+      province: row.province,
+      lat: Number(row.lat),
+      lon: Number(row.lon),
+      severity: row.severity,
+      confirmations: Number(row.confirmations || 1),
+      falseReportCount: Number(row.false_report_count || 0),
+      beingSolvedCount: Number(row.being_solved_count || 0),
+      isUserPinned: Boolean(row.is_user_pinned),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    };
+  }
+
+  public async listMapHazards(filters?: { province?: string; kind?: string }): Promise<DbMapHazard[]> {
+    await this.waitForInit();
+    const prov = filters?.province && filters.province !== 'ALL' ? filters.province.toUpperCase() : null;
+    const kind = filters?.kind && filters.kind !== 'all' ? filters.kind.toLowerCase() : null;
+
+    if (this.isUsingPostgres()) {
+      const clauses: string[] = [];
+      const params: any[] = [];
+      if (prov) {
+        params.push(prov);
+        clauses.push(`UPPER(province) = $${params.length}`);
+      }
+      if (kind) {
+        params.push(kind);
+        clauses.push(`LOWER(kind) = $${params.length}`);
+      }
+      const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+      const res = await this.pool!.query(
+        `SELECT id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at
+         FROM map_hazards
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT 200`,
+        params
+      );
+      return res.rows.map((r) => this.mapHazardRow(r));
+    }
+
+    return this.memory.mapHazards.filter((h) => {
+      if (prov && h.province.toUpperCase() !== prov) return false;
+      if (kind && h.kind !== kind) return false;
+      return true;
+    });
+  }
+
+  public async createMapHazard(data: {
+    kind: 'pothole' | 'accident' | 'traffic' | 'alert';
+    title: string;
+    description?: string;
+    area?: string;
+    province?: string;
+    lat: number;
+    lon: number;
+    severity?: 'low' | 'medium' | 'high';
+    reporterId?: string | null;
+  }): Promise<DbMapHazard> {
+    await this.waitForInit();
+    const id = `hz_user_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const now = new Date().toISOString();
+    const title = data.title.trim().slice(0, 100);
+    const description = (data.description || 'Reported live by a South African road user.').trim().slice(0, 240);
+    const area = (data.area || 'South Africa').trim().slice(0, 120);
+    const province = (data.province || 'GP').toUpperCase().slice(0, 10);
+    const severity = data.severity || (data.kind === 'accident' ? 'high' : 'medium');
+
+    if (this.isUsingPostgres()) {
+      const res = await this.pool!.query(
+        `INSERT INTO map_hazards (id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, reporter_id, is_user_pinned, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, 0, 0, $10, true, $11)
+         RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
+        [id, data.kind, title, description, area, province, Number(data.lat), Number(data.lon), severity, data.reporterId || null, now]
+      );
+      return this.mapHazardRow(res.rows[0]);
+    }
+
+    const pin: DbMapHazard = {
+      id,
+      kind: data.kind,
+      title,
+      description,
+      area,
+      province,
+      lat: Number(data.lat),
+      lon: Number(data.lon),
+      severity,
+      confirmations: 1,
+      falseReportCount: 0,
+      beingSolvedCount: 0,
+      isUserPinned: true,
+      createdAt: now,
+    };
+    this.memory.mapHazards.unshift(pin);
+    return pin;
+  }
+
+  public async getUserHazardVotes(
+    voterKey: string
+  ): Promise<Record<string, { unsolved: boolean; false_report: boolean; being_solved: boolean }>> {
+    await this.waitForInit();
+    if (!voterKey) return {};
+    if (this.isUsingPostgres()) {
+      const res = await this.pool!.query(
+        `SELECT hazard_id, unsolved, false_report, being_solved
+         FROM map_hazard_votes
+         WHERE voter_key = $1`,
+        [voterKey]
+      );
+      const out: Record<string, { unsolved: boolean; false_report: boolean; being_solved: boolean }> = {};
+      for (const r of res.rows) {
+        out[r.hazard_id] = {
+          unsolved: Boolean(r.unsolved),
+          false_report: Boolean(r.false_report),
+          being_solved: Boolean(r.being_solved),
+        };
+      }
+      return out;
+    }
+
+    const out: Record<string, { unsolved: boolean; false_report: boolean; being_solved: boolean }> = {};
+    const suffix = `::${voterKey}`;
+    for (const [k, v] of Object.entries(this.memory.mapHazardVotes)) {
+      if (k.endsWith(suffix)) {
+        const hazardId = k.slice(0, -suffix.length);
+        out[hazardId] = { ...v };
+      }
+    }
+    return out;
+  }
+
+  private computeNextVoteState(
+    curr: { unsolved: boolean; false_report: boolean; being_solved: boolean },
+    clicked: 'unsolved' | 'being_solved' | 'false_report'
+  ) {
+    let next: { unsolved: boolean; false_report: boolean; being_solved: boolean };
+    if (curr[clicked]) {
+      // Pressing the same active button again removes its vote point
+      next = { ...curr, [clicked]: false };
+    } else if (clicked === 'false_report') {
+      // Switching to False Report transfers any active True vote(s) to False Report
+      next = { unsolved: false, false_report: true, being_solved: false };
+    } else if (clicked === 'unsolved') {
+      // Picking True & Unsolved transfers from False Report if active, while keeping True & Solved if active
+      next = { unsolved: true, false_report: false, being_solved: curr.being_solved };
+    } else {
+      // Picking True & Solved transfers from False Report if active, while keeping True & Unsolved if active
+      next = { unsolved: curr.unsolved, false_report: false, being_solved: true };
+    }
+
+    const dUnsolved = (next.unsolved ? 1 : 0) - (curr.unsolved ? 1 : 0);
+    const dFalse = (next.false_report ? 1 : 0) - (curr.false_report ? 1 : 0);
+    const dSolved = (next.being_solved ? 1 : 0) - (curr.being_solved ? 1 : 0);
+    return { next, dUnsolved, dFalse, dSolved };
+  }
+
+  public async voteMapHazardAnalysis(
+    id: string,
+    status: 'unsolved' | 'being_solved' | 'false_report',
+    voterKey?: string
+  ): Promise<{
+    hazard: DbMapHazard;
+    userVote: { unsolved: boolean; false_report: boolean; being_solved: boolean };
+  } | null> {
+    await this.waitForInit();
+
+    if (this.isUsingPostgres()) {
+      if (!voterKey) {
+        const col =
+          status === 'false_report'
+            ? 'false_report_count'
+            : status === 'being_solved'
+              ? 'being_solved_count'
+              : 'confirmations';
+        const res = await this.pool!.query(
+          `UPDATE map_hazards
+           SET ${col} = ${col} + 1
+           WHERE id = $1
+           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
+          [id]
+        );
+        if (res.rows.length === 0) return null;
+        return {
+          hazard: this.mapHazardRow(res.rows[0]),
+          userVote: {
+            unsolved: status === 'unsolved',
+            false_report: status === 'false_report',
+            being_solved: status === 'being_solved',
+          },
+        };
+      }
+
+      const client = await this.pool!.connect();
+      try {
+        await client.query('BEGIN');
+        const existsRes = await client.query(`SELECT id FROM map_hazards WHERE id = $1 FOR UPDATE`, [id]);
+        if (existsRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+
+        const voteRes = await client.query(
+          `SELECT unsolved, false_report, being_solved
+           FROM map_hazard_votes
+           WHERE hazard_id = $1 AND voter_key = $2
+           FOR UPDATE`,
+          [id, voterKey]
+        );
+        const curr = voteRes.rows[0]
+          ? {
+              unsolved: Boolean(voteRes.rows[0].unsolved),
+              false_report: Boolean(voteRes.rows[0].false_report),
+              being_solved: Boolean(voteRes.rows[0].being_solved),
+            }
+          : { unsolved: false, false_report: false, being_solved: false };
+
+        const { next, dUnsolved, dFalse, dSolved } = this.computeNextVoteState(curr, status);
+
+        await client.query(
+          `INSERT INTO map_hazard_votes (hazard_id, voter_key, unsolved, false_report, being_solved)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (hazard_id, voter_key)
+           DO UPDATE SET
+             unsolved = EXCLUDED.unsolved,
+             false_report = EXCLUDED.false_report,
+             being_solved = EXCLUDED.being_solved`,
+          [id, voterKey, next.unsolved, next.false_report, next.being_solved]
+        );
+
+        const updatedRes = await client.query(
+          `UPDATE map_hazards
+           SET
+             confirmations = GREATEST(0, confirmations + $2),
+             false_report_count = GREATEST(0, false_report_count + $3),
+             being_solved_count = GREATEST(0, being_solved_count + $4)
+           WHERE id = $1
+           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
+          [id, dUnsolved, dFalse, dSolved]
+        );
+
+        await client.query('COMMIT');
+        return {
+          hazard: this.mapHazardRow(updatedRes.rows[0]),
+          userVote: next,
+        };
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    const found = this.memory.mapHazards.find((h) => h.id === id);
+    if (!found) return null;
+
+    if (!voterKey) {
+      if (status === 'false_report') {
+        found.falseReportCount = (found.falseReportCount || 0) + 1;
+      } else if (status === 'being_solved') {
+        found.beingSolvedCount = (found.beingSolvedCount || 0) + 1;
+      } else {
+        found.confirmations += 1;
+      }
+      return {
+        hazard: found,
+        userVote: {
+          unsolved: status === 'unsolved',
+          false_report: status === 'false_report',
+          being_solved: status === 'being_solved',
+        },
+      };
+    }
+
+    const key = `${id}::${voterKey}`;
+    const curr = this.memory.mapHazardVotes[key] || {
+      unsolved: false,
+      false_report: false,
+      being_solved: false,
+    };
+    const { next, dUnsolved, dFalse, dSolved } = this.computeNextVoteState(curr, status);
+    this.memory.mapHazardVotes[key] = next;
+
+    found.confirmations = Math.max(0, (found.confirmations || 0) + dUnsolved);
+    found.falseReportCount = Math.max(0, (found.falseReportCount || 0) + dFalse);
+    found.beingSolvedCount = Math.max(0, (found.beingSolvedCount || 0) + dSolved);
+
+    return { hazard: found, userVote: next };
+  }
+
+  public async confirmMapHazard(id: string): Promise<DbMapHazard | null> {
+    const res = await this.voteMapHazardAnalysis(id, 'unsolved');
+    return res ? res.hazard : null;
+  }
   // HELPERS
 
   private mapUserRow(row: any): DbUser {
@@ -2086,6 +2926,8 @@ class DatabaseService {
       smsCurrentSpendPence: row.sms_current_spend_pence,
       defaultPlate: row.default_plate || undefined,
       defaultProvinceCode: row.default_province_code || undefined,
+      homeProvince: row.home_province || undefined,
+      homeCity: row.home_city || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

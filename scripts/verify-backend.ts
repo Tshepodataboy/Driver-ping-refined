@@ -17,7 +17,40 @@
  *    - Persistence: Verifies updated status persists in database
  */
 
-const BASE_URL = 'http://localhost:3000/api';
+const CANDIDATE_URLS = [
+  process.env.TEST_BASE_URL,
+  'http://127.0.0.1:3000/api',
+  'http://localhost:3000/api',
+].filter(Boolean) as string[];
+
+let BASE_URL = CANDIDATE_URLS[0];
+
+async function waitForServerReady(): Promise<any> {
+  for (let attempt = 1; attempt <= 30; attempt++) {
+    for (const candidate of CANDIDATE_URLS) {
+      try {
+        const res = await fetch(`${candidate}/db-status`);
+        if (res.ok) {
+          BASE_URL = candidate;
+          return await res.json();
+        }
+      } catch {
+        // Continue checking
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  for (const candidate of CANDIDATE_URLS) {
+    try {
+      const fallbackRes = await fetch(`${candidate}/db-status`);
+      BASE_URL = candidate;
+      return await fallbackRes.json();
+    } catch {
+      // Continue
+    }
+  }
+  throw new Error(`Server failed to respond at any candidate URL: ${CANDIDATE_URLS.join(', ')}`);
+}
 
 async function runTests() {
   console.log('--- STARTING DRIVER PING VERIFICATION TESTS ---\n');
@@ -35,8 +68,7 @@ async function runTests() {
   }
 
   // 1. Verify DB Status
-  const dbStatusRes = await fetch(`${BASE_URL}/db-status`);
-  const dbStatus = await dbStatusRes.json();
+  const dbStatus = await waitForServerReady();
   assert(dbStatus.status === 'ok', 'Database status endpoint returns status: ok');
 
   // 2. Insecure header rejection test:

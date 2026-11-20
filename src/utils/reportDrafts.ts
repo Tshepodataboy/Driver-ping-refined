@@ -34,10 +34,17 @@ function isValidDraft(value: unknown): value is ReportDraft {
   return typeof draft.id === 'string' && typeof draft.updatedAt === 'number';
 }
 
+function notifyDraftsChanged(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('driver-ping-drafts-changed'));
+  }
+}
+
 function persist(drafts: ReportDraft[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
+    notifyDraftsChanged();
   } catch {
     // Photo data urls can blow the storage quota: keep the drafts, drop the photos.
     try {
@@ -45,6 +52,7 @@ function persist(drafts: ReportDraft[]): void {
         STORAGE_KEY,
         JSON.stringify(drafts.map((draft) => ({ ...draft, photo: null })))
       );
+      notifyDraftsChanged();
     } catch {
       // Storage unavailable: drafts simply stay in memory for this session.
     }
@@ -92,6 +100,9 @@ let pendingResumeDraft: ReportDraft | null = null;
 
 export function queueDraftResume(draft: ReportDraft): void {
   pendingResumeDraft = draft;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('driver-ping-resume-draft'));
+  }
 }
 
 export function takePendingResumeDraft(): ReportDraft | null {

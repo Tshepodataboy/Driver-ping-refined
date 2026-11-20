@@ -20,9 +20,13 @@ CREATE TABLE IF NOT EXISTS users (
     sms_current_spend_pence INTEGER NOT NULL DEFAULT 0,
     default_plate VARCHAR(50),
     default_province_code VARCHAR(20),
+    home_province VARCHAR(20),
+    home_city VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS home_province VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS home_city VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 
 -- 2. OTP AUTHENTICATION CODES
@@ -151,3 +155,47 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
+
+-- 10. SYSTEM CONFIG TABLE
+-- Stores application environment metadata, Google Cloud Project ID, Google Cloud Project Number, and Gemini API keys in Supabase
+CREATE TABLE IF NOT EXISTS system_config (
+    key_name VARCHAR(100) PRIMARY KEY,
+    key_value TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'general',
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_system_config_category ON system_config(category);
+
+-- 11. MAP HAZARDS TABLE
+-- Live South African road hazard pins (potholes, accidents, traffic jams) persisted in Supabase
+CREATE TABLE IF NOT EXISTS map_hazards (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    kind VARCHAR(20) NOT NULL CHECK (kind IN ('pothole', 'accident', 'traffic', 'alert')),
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    area VARCHAR(120) NOT NULL,
+    province VARCHAR(10) NOT NULL DEFAULT 'GP',
+    lat DOUBLE PRECISION NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    severity VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high')),
+    confirmations INTEGER NOT NULL DEFAULT 1,
+    false_report_count INTEGER NOT NULL DEFAULT 0,
+    being_solved_count INTEGER NOT NULL DEFAULT 0,
+    reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    is_user_pinned BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_map_hazards_province_kind ON map_hazards(province, kind);
+CREATE INDEX IF NOT EXISTS idx_map_hazards_created ON map_hazards(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS map_hazard_votes (
+    hazard_id TEXT NOT NULL REFERENCES map_hazards(id) ON DELETE CASCADE,
+    voter_key TEXT NOT NULL,
+    unsolved BOOLEAN NOT NULL DEFAULT false,
+    false_report BOOLEAN NOT NULL DEFAULT false,
+    being_solved BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (hazard_id, voter_key)
+);
+

@@ -15,7 +15,6 @@ import {
   Car,
   Trash2,
   CheckCircle2,
-  AlertCircle,
   Phone,
   User as UserIcon,
   ShieldCheck,

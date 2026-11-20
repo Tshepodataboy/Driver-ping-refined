@@ -376,62 +376,182 @@ html, body, * {
   transition: 0.3s;
 }
 
-/* pressed: red flash for 0.5s */
-.wrapper:focus-within .btn,
-.wrapper.is-open .btn,
-.report-aurora-card .wrapper:focus-within .btn,
-.report-aurora-card .wrapper.is-open .btn,
-.btn.is-flashing {
-  border-color: #ff0033 !important;
+/* press & hold (0–2s): keep main REPORT button white (override :focus-within red) */
+.wrapper .btn:active:not(.is-police-strobe),
+.wrapper .btn.is-holding:not(.is-police-strobe),
+.report-aurora-card .wrapper .btn:active:not(.is-police-strobe),
+.report-aurora-card .wrapper .btn.is-holding:not(.is-police-strobe),
+.report-aurora-card .wrapper:focus-within .btn:active:not(.is-police-strobe),
+.report-aurora-card .wrapper:focus-within .btn.is-holding:not(.is-police-strobe),
+.report-aurora-card .wrapper.is-holding .btn:not(.is-police-strobe) {
+  border-color: #ffffff !important;
   box-shadow:
-    0 5px 3px rgb(18 18 18 / 35%),
-    0 0 35px rgba(255, 30, 30, 1),
-    0 0 70px rgba(255, 10, 40, 0.9) !important;
-  background: linear-gradient(0deg, #ffffff 30%, #ffe8ec 70%, #ffccd5) !important;
-  color: #ff0033 !important;
-  animation: flash-glow 0.5s linear !important;
+    0 0 18px rgba(255, 255, 255, 0.75),
+    0 14px 34px -4px rgba(40, 2, 10, 0.6),
+    inset 0 2px 0 rgba(255, 255, 255, 0.9) !important;
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFF5F7 60%, #FCE7EB 100%) !important;
+  color: #941329 !important;
+  transform: scale(0.97);
+  animation: none !important;
 }
 
-.wrapper:focus-within .btn::before,
-.wrapper.is-open .btn::before,
-.report-aurora-card .wrapper:focus-within .btn::before,
-.report-aurora-card .wrapper.is-open .btn::before,
-.btn.is-flashing::before {
-  border-color: #ff0033 !important;
-  background: rgb(255, 130, 150) !important;
-  box-shadow: 0 0 35px rgba(255, 20, 50, 1), inset 0 0 14px #ff0033 !important;
-  animation: flash-ring 0.5s linear !important;
+.wrapper .btn:active:not(.is-police-strobe)::before,
+.wrapper .btn.is-holding:not(.is-police-strobe)::before,
+.report-aurora-card .wrapper .btn:active:not(.is-police-strobe)::before,
+.report-aurora-card .wrapper .btn.is-holding:not(.is-police-strobe)::before,
+.report-aurora-card .wrapper:focus-within .btn:active:not(.is-police-strobe)::before,
+.report-aurora-card .wrapper:focus-within .btn.is-holding:not(.is-police-strobe)::before,
+.report-aurora-card .wrapper.is-holding .btn:not(.is-police-strobe)::before {
+  border-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.7), inset 0 0 12px rgba(255, 255, 255, 0.4) !important;
+  animation: none !important;
 }
 
-@keyframes flash-glow {
-  0%,
-  99% {
-    border-color: #ff0033;
-    box-shadow:
-      0 5px 3px rgb(18 18 18 / 35%),
-      0 0 45px rgba(255, 30, 30, 1),
-      0 0 85px rgba(255, 10, 40, 0.95);
-    background: linear-gradient(0deg, #ffffff 20%, #ffebee 60%, #ffcdd2);
-    color: #ff0033;
-  }
-}
-
-@keyframes flash-ring {
-  0%,
-  99% {
-    border-color: #ff0033;
-    background: rgb(255, 120, 140);
-    box-shadow: 0 0 40px rgba(255, 20, 50, 1), inset 0 0.25rem 0.45rem #ff0033;
-  }
-}
-
-/* after the flash, GO shrinks and fades out (the grid takes its place) */
-.wrapper:focus-within .go-wrap,
+/* GO shrinks and fades out immediately (the 4-button grid takes its place) */
 .wrapper.is-open .go-wrap {
   opacity: 0;
   transform: scale(0.6);
   pointer-events: none;
-  transition: opacity 0.25s ease 0.5s, transform 0.25s ease 0.5s;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* keep main REPORT button visible while pressing and holding */
+.wrapper.is-holding .go-wrap {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}
+
+/* hide underlying button during police strobe since cut-out portal renders above the full-screen blur */
+.wrapper.is-police-strobe .go-wrap {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+/* 2s press-and-hold -> 4s Police car light effect (Red / White / Blue strobe) */
+@keyframes report-police-strobe {
+  0%, 38% {
+    background: linear-gradient(135deg, #ff3b3b 0%, #ef4444 55%, #b91c1c 100%);
+    border-color: #fecaca;
+    color: #ffffff;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 42px rgba(239, 68, 68, 1),
+      0 0 85px rgba(239, 68, 68, 0.95);
+  }
+  40%, 48% {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-color: #ffffff;
+    color: #0f172a;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 55px rgba(255, 255, 255, 1),
+      0 0 95px rgba(255, 255, 255, 0.95);
+  }
+  50%, 88% {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+    border-color: #bfdbfe;
+    color: #ffffff;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 42px rgba(37, 99, 235, 1),
+      0 0 85px rgba(59, 130, 246, 0.95);
+  }
+  90%, 98% {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-color: #ffffff;
+    color: #0f172a;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 55px rgba(255, 255, 255, 1),
+      0 0 95px rgba(255, 255, 255, 0.95);
+  }
+  100% {
+    background: linear-gradient(135deg, #ff3b3b 0%, #ef4444 55%, #b91c1c 100%);
+    border-color: #fecaca;
+    color: #ffffff;
+    box-shadow:
+      0 5px 3px rgb(18 18 18 / 35%),
+      0 0 42px rgba(239, 68, 68, 1),
+      0 0 85px rgba(239, 68, 68, 0.95);
+  }
+}
+
+@keyframes report-police-ring {
+  0%, 38% {
+    border-color: #fca5a5;
+    background: rgba(239, 68, 68, 0.58);
+    box-shadow: 0 0 45px rgba(239, 68, 68, 1), inset 0 0 18px #ef4444;
+  }
+  40%, 48% {
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 55px rgba(255, 255, 255, 1), inset 0 0 18px #ffffff;
+  }
+  50%, 88% {
+    border-color: #93c5fd;
+    background: rgba(37, 99, 235, 0.58);
+    box-shadow: 0 0 45px rgba(37, 99, 235, 1), inset 0 0 18px #3b82f6;
+  }
+  90%, 98% {
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 55px rgba(255, 255, 255, 1), inset 0 0 18px #ffffff;
+  }
+  100% {
+    border-color: #fca5a5;
+    background: rgba(239, 68, 68, 0.58);
+    box-shadow: 0 0 45px rgba(239, 68, 68, 1), inset 0 0 18px #ef4444;
+  }
+}
+
+@keyframes report-police-card {
+  0%, 45% {
+    border-color: rgba(239, 68, 68, 0.9);
+    box-shadow: 0 0 32px rgba(239, 68, 68, 0.65), 0 24px 60px -12px rgba(25, 2, 7, 0.85);
+  }
+  46%, 50% {
+    border-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 36px rgba(255, 255, 255, 0.65), 0 24px 60px -12px rgba(25, 2, 7, 0.85);
+  }
+  51%, 95% {
+    border-color: rgba(59, 130, 246, 0.95);
+    box-shadow: 0 0 32px rgba(37, 99, 235, 0.75), 0 24px 60px -12px rgba(25, 2, 7, 0.85);
+  }
+  96%, 100% {
+    border-color: rgba(239, 68, 68, 0.9);
+    box-shadow: 0 0 32px rgba(239, 68, 68, 0.65), 0 24px 60px -12px rgba(25, 2, 7, 0.85);
+  }
+}
+
+.report-aurora-card.is-police-strobe {
+  animation: report-police-card 0.55s infinite linear !important;
+}
+
+.wrapper.is-police-strobe .btn,
+.wrapper.is-police-strobe .btn:active,
+.report-aurora-card .wrapper.is-police-strobe .btn,
+.report-aurora-card .wrapper.is-police-strobe .btn:active,
+.report-aurora-card .wrapper.is-police-strobe:focus-within .btn,
+.btn.is-police-strobe,
+.btn.is-police-strobe:active {
+  flex-direction: column;
+  text-align: center;
+  animation: report-police-strobe 0.55s infinite linear !important;
+  transform: scale(1) !important;
+}
+
+.wrapper.is-police-strobe .btn::before,
+.wrapper.is-police-strobe .btn:active::before,
+.report-aurora-card .wrapper.is-police-strobe .btn::before,
+.report-aurora-card .wrapper.is-police-strobe .btn:active::before,
+.report-aurora-card .wrapper.is-police-strobe:focus-within .btn::before,
+.btn.is-police-strobe::before,
+.btn.is-police-strobe:active::before {
+  animation: report-police-ring 0.55s infinite linear !important;
 }
 
 /* ---------- Button 2 (social grid) ---------- */
@@ -474,17 +594,25 @@ html, body, * {
     visibility 0s linear 0.2s;
 }
 
-/* pops in right after the red flash */
-.wrapper:focus-within .socials,
+/* pops in immediately without red flash delay */
 .wrapper.is-open .socials {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
   transform: scale(1);
   transition:
-    opacity 0.35s ease 0.5s,
-    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s,
-    visibility 0s linear 0.5s;
+    opacity 0.25s ease,
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    visibility 0s linear;
+}
+
+.wrapper.is-holding .socials,
+.wrapper.is-police-strobe .socials {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: scale(0.5) !important;
+  transition: none !important;
 }
 
 /* cards share the GO button's texture */
