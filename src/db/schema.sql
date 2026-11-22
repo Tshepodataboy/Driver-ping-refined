@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS map_hazards (
     kind VARCHAR(20) NOT NULL CHECK (kind IN ('pothole', 'accident', 'traffic', 'alert')),
     title VARCHAR(100) NOT NULL,
     description TEXT,
-    area VARCHAR(120) NOT NULL,
+    area TEXT NOT NULL,
     province VARCHAR(10) NOT NULL DEFAULT 'GP',
     lat DOUBLE PRECISION NOT NULL,
     lon DOUBLE PRECISION NOT NULL,
@@ -182,6 +182,7 @@ CREATE TABLE IF NOT EXISTS map_hazards (
     confirmations INTEGER NOT NULL DEFAULT 1,
     false_report_count INTEGER NOT NULL DEFAULT 0,
     being_solved_count INTEGER NOT NULL DEFAULT 0,
+    image_url TEXT,
     reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     is_user_pinned BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -198,4 +199,82 @@ CREATE TABLE IF NOT EXISTS map_hazard_votes (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     PRIMARY KEY (hazard_id, voter_key)
 );
+
+-- 12. SUPABASE ROW LEVEL SECURITY (RLS) & REPORTER PRIVACY HARDENING
+-- Ensures private tables, reporter_id columns, and deletions are strictly protected even via direct Supabase PostgREST access.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE otps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicle_drivers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trusted_contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ownership_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE map_hazards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE map_hazard_votes ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+     AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE users, otps, vehicles, vehicle_drivers, trusted_contacts,
+      ownership_verifications, reports, delivery_logs, audit_logs, system_config,
+      map_hazards, map_hazard_votes FROM anon, authenticated;
+
+    -- Allow authenticated creators to filter by id for DELETE while keeping reporter_id strictly hidden
+    GRANT SELECT (id) ON TABLE map_hazards TO authenticated;
+    GRANT INSERT (id, kind, title, description, area, province, lat, lon, severity, image_url, reporter_id) ON TABLE map_hazards TO authenticated;
+    GRANT DELETE ON TABLE map_hazards TO authenticated;
+  END IF;
+
+  IF to_regprocedure('auth.uid()') IS NOT NULL THEN
+    DROP POLICY IF EXISTS map_hazards_insert_own_reporter ON map_hazards;
+    CREATE POLICY map_hazards_insert_own_reporter
+      ON map_hazards
+      FOR INSERT
+      TO authenticated
+      WITH CHECK (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+    DROP POLICY IF EXISTS map_hazards_delete_own_reporter ON map_hazards;
+    CREATE POLICY map_hazards_delete_own_reporter
+      ON map_hazards
+      FOR DELETE
+      TO authenticated
+      USING (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+    DROP POLICY IF EXISTS map_hazards_select_id_for_owner ON map_hazards;
+    CREATE POLICY map_hazards_select_id_for_owner
+      ON map_hazards
+      FOR SELECT
+      TO authenticated
+      USING (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+    CREATE OR REPLACE VIEW map_hazards_public AS
+      SELECT
+        id,
+        kind,
+        title,
+        description,
+        area,
+        province,
+        lat,
+        lon,
+        severity,
+        confirmations,
+        false_report_count,
+        being_solved_count,
+        image_url,
+        is_user_pinned,
+        created_at,
+        (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text) AS can_delete
+      FROM map_hazards;
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+       AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+      GRANT SELECT ON map_hazards_public TO anon, authenticated;
+    END IF;
+  END IF;
+END $$;
 

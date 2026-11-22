@@ -145,8 +145,14 @@ export interface DbMapHazard {
   confirmations: number;
   falseReportCount: number;
   beingSolvedCount: number;
+  imageUrl?: string | null;
   isUserPinned?: boolean;
+  canDelete?: boolean;
   createdAt: string;
+}
+
+interface InternalMapHazard extends DbMapHazard {
+  reporterId?: string | null;
 }
 
 const SEED_MAP_HAZARDS: DbMapHazard[] = [
@@ -802,7 +808,7 @@ class DatabaseService {
     deliveryLogs: [...SEED_DELIVERY_LOGS],
     auditLogs: [...SEED_AUDIT_LOGS],
     systemConfigs: [...SEED_SYSTEM_CONFIGS],
-    mapHazards: [...SEED_MAP_HAZARDS],
+    mapHazards: SEED_MAP_HAZARDS.map((h) => ({ ...h, reporterId: null as string | null })) as InternalMapHazard[],
     mapHazardVotes: {} as Record<string, { unsolved: boolean; false_report: boolean; being_solved: boolean }>,
   };
 
@@ -947,6 +953,7 @@ class DatabaseService {
           `).catch(() => {});
           await this.ensureSystemConfigs();
           await this.ensureMapHazardsTable();
+          await this.ensureSupabaseRlsSecurity();
           console.log('✅ [Driver Ping DB] Supabase schema & seed data verified (fast path).');
           return;
         }
@@ -991,6 +998,7 @@ class DatabaseService {
       console.log('🌱 [Driver Ping DB] Ensuring predefined demo users and vehicles are present in Supabase...');
       await this.seedSupabaseData();
       await this.ensureMapHazardsTable();
+      await this.ensureSupabaseRlsSecurity();
       console.log('✅ [Driver Ping DB] Supabase database seed verification complete.');
     } catch (err: any) {
       console.warn('⚠️ [Driver Ping DB] Non-fatal notice during Supabase schema setup:', err.message);
@@ -2515,7 +2523,7 @@ class DatabaseService {
           kind VARCHAR(20) NOT NULL CHECK (kind IN ('pothole', 'accident', 'traffic', 'alert')),
           title VARCHAR(100) NOT NULL,
           description TEXT,
-          area VARCHAR(120) NOT NULL,
+          area TEXT NOT NULL,
           province VARCHAR(10) NOT NULL DEFAULT 'GP',
           lat DOUBLE PRECISION NOT NULL,
           lon DOUBLE PRECISION NOT NULL,
@@ -2523,6 +2531,7 @@ class DatabaseService {
           confirmations INTEGER NOT NULL DEFAULT 1,
           false_report_count INTEGER NOT NULL DEFAULT 0,
           being_solved_count INTEGER NOT NULL DEFAULT 0,
+          image_url TEXT,
           reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL,
           is_user_pinned BOOLEAN NOT NULL DEFAULT false,
           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -2571,6 +2580,11 @@ class DatabaseService {
       await this.pool.query(`
         ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS false_report_count INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS being_solved_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS image_url TEXT;
+        ALTER TABLE map_hazards ADD COLUMN IF NOT EXISTS reporter_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+        DROP VIEW IF EXISTS map_hazards_public;
+        ALTER TABLE map_hazards ALTER COLUMN area TYPE TEXT;
+        DELETE FROM map_hazards WHERE id = 'hz_user_1795366651936_ja3w';
       `);
 
       const countRes = await this.pool.query('SELECT COUNT(*)::int AS cnt FROM map_hazards');
@@ -2611,7 +2625,93 @@ class DatabaseService {
     }
   }
 
-  private mapHazardRow(row: any): DbMapHazard {
+  private async ensureSupabaseRlsSecurity(): Promise<void> {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(`
+        ALTER TABLE IF EXISTS users ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS otps ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS vehicles ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS vehicle_drivers ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS trusted_contacts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS ownership_verifications ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS reports ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS delivery_logs ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS audit_logs ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS system_config ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS map_hazards ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE IF EXISTS map_hazard_votes ENABLE ROW LEVEL SECURITY;
+
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+             AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+            REVOKE ALL ON TABLE users, otps, vehicles, vehicle_drivers, trusted_contacts,
+              ownership_verifications, reports, delivery_logs, audit_logs, system_config,
+              map_hazards, map_hazard_votes FROM anon, authenticated;
+
+            GRANT SELECT (id) ON TABLE map_hazards TO authenticated;
+            GRANT INSERT (id, kind, title, description, area, province, lat, lon, severity, image_url, reporter_id) ON TABLE map_hazards TO authenticated;
+            GRANT DELETE ON TABLE map_hazards TO authenticated;
+          END IF;
+
+          IF to_regprocedure('auth.uid()') IS NOT NULL THEN
+            DROP POLICY IF EXISTS map_hazards_insert_own_reporter ON map_hazards;
+            CREATE POLICY map_hazards_insert_own_reporter
+              ON map_hazards
+              FOR INSERT
+              TO authenticated
+              WITH CHECK (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+            DROP POLICY IF EXISTS map_hazards_delete_own_reporter ON map_hazards;
+            CREATE POLICY map_hazards_delete_own_reporter
+              ON map_hazards
+              FOR DELETE
+              TO authenticated
+              USING (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+            DROP POLICY IF EXISTS map_hazards_select_id_for_owner ON map_hazards;
+            CREATE POLICY map_hazards_select_id_for_owner
+              ON map_hazards
+              FOR SELECT
+              TO authenticated
+              USING (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text);
+
+            CREATE OR REPLACE VIEW map_hazards_public AS
+              SELECT
+                id,
+                kind,
+                title,
+                description,
+                area,
+                province,
+                lat,
+                lon,
+                severity,
+                confirmations,
+                false_report_count,
+                being_solved_count,
+                image_url,
+                is_user_pinned,
+                created_at,
+                (reporter_id IS NOT NULL AND reporter_id = auth.uid()::text) AS can_delete
+              FROM map_hazards;
+
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+               AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              GRANT SELECT ON map_hazards_public TO anon, authenticated;
+            END IF;
+          END IF;
+        END $$;
+      `);
+      console.log('✅ [Driver Ping DB] Supabase RLS & reporter privacy policies verified.');
+    } catch (err: any) {
+      console.warn('⚠️ [Driver Ping DB] Notice during Supabase RLS verification:', err?.message || err);
+    }
+  }
+
+  private mapHazardRow(row: any, viewerUserId?: string | null): DbMapHazard {
+    const rowReporterId = row.reporter_id || row.reporterId || null;
     return {
       id: row.id,
       kind: row.kind,
@@ -2625,15 +2725,30 @@ class DatabaseService {
       confirmations: Number(row.confirmations || 1),
       falseReportCount: Number(row.false_report_count || 0),
       beingSolvedCount: Number(row.being_solved_count || 0),
-      isUserPinned: Boolean(row.is_user_pinned),
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      imageUrl: row.image_url || null,
+      isUserPinned: Boolean(row.is_user_pinned ?? row.isUserPinned),
+      canDelete: Boolean(viewerUserId && rowReporterId && rowReporterId === viewerUserId),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? row.createdAt),
     };
   }
 
-  public async listMapHazards(filters?: { province?: string; kind?: string }): Promise<DbMapHazard[]> {
+  private toPublicMemoryHazard(h: InternalMapHazard, viewerUserId?: string | null): DbMapHazard {
+    const { reporterId, ...rest } = h;
+    return {
+      ...rest,
+      canDelete: Boolean(viewerUserId && reporterId && reporterId === viewerUserId),
+    };
+  }
+
+  public async listMapHazards(filters?: {
+    province?: string;
+    kind?: string;
+    viewerUserId?: string | null;
+  }): Promise<DbMapHazard[]> {
     await this.waitForInit();
     const prov = filters?.province && filters.province !== 'ALL' ? filters.province.toUpperCase() : null;
     const kind = filters?.kind && filters.kind !== 'all' ? filters.kind.toLowerCase() : null;
+    const viewerUserId = filters?.viewerUserId || null;
 
     if (this.isUsingPostgres()) {
       const clauses: string[] = [];
@@ -2648,21 +2763,23 @@ class DatabaseService {
       }
       const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
       const res = await this.pool!.query(
-        `SELECT id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at
+        `SELECT id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, image_url, reporter_id, is_user_pinned, created_at
          FROM map_hazards
          ${where}
          ORDER BY created_at DESC
          LIMIT 200`,
         params
       );
-      return res.rows.map((r) => this.mapHazardRow(r));
+      return res.rows.map((r) => this.mapHazardRow(r, viewerUserId));
     }
 
-    return this.memory.mapHazards.filter((h) => {
-      if (prov && h.province.toUpperCase() !== prov) return false;
-      if (kind && h.kind !== kind) return false;
-      return true;
-    });
+    return this.memory.mapHazards
+      .filter((h) => {
+        if (prov && h.province.toUpperCase() !== prov) return false;
+        if (kind && h.kind !== kind) return false;
+        return true;
+      })
+      .map((h) => this.toPublicMemoryHazard(h, viewerUserId));
   }
 
   public async createMapHazard(data: {
@@ -2674,6 +2791,7 @@ class DatabaseService {
     lat: number;
     lon: number;
     severity?: 'low' | 'medium' | 'high';
+    imageUrl?: string | null;
     reporterId?: string | null;
   }): Promise<DbMapHazard> {
     await this.waitForInit();
@@ -2681,21 +2799,23 @@ class DatabaseService {
     const now = new Date().toISOString();
     const title = data.title.trim().slice(0, 100);
     const description = (data.description || 'Reported live by a South African road user.').trim().slice(0, 240);
-    const area = (data.area || 'South Africa').trim().slice(0, 120);
+    const area = (data.area || 'South Africa').trim().slice(0, 300);
     const province = (data.province || 'GP').toUpperCase().slice(0, 10);
     const severity = data.severity || (data.kind === 'accident' ? 'high' : 'medium');
+    const imageUrl = typeof data.imageUrl === 'string' && data.imageUrl.trim() ? data.imageUrl.trim() : null;
+    const reporterId = data.reporterId || null;
 
     if (this.isUsingPostgres()) {
       const res = await this.pool!.query(
-        `INSERT INTO map_hazards (id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, reporter_id, is_user_pinned, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, 0, 0, $10, true, $11)
-         RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
-        [id, data.kind, title, description, area, province, Number(data.lat), Number(data.lon), severity, data.reporterId || null, now]
+        `INSERT INTO map_hazards (id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, image_url, reporter_id, is_user_pinned, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, 0, 0, $10, $11, true, $12)
+         RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, image_url, reporter_id, is_user_pinned, created_at`,
+        [id, data.kind, title, description, area, province, Number(data.lat), Number(data.lon), severity, imageUrl, reporterId, now]
       );
-      return this.mapHazardRow(res.rows[0]);
+      return this.mapHazardRow(res.rows[0], reporterId);
     }
 
-    const pin: DbMapHazard = {
+    const pin: InternalMapHazard = {
       id,
       kind: data.kind,
       title,
@@ -2708,11 +2828,13 @@ class DatabaseService {
       confirmations: 1,
       falseReportCount: 0,
       beingSolvedCount: 0,
+      imageUrl,
+      reporterId,
       isUserPinned: true,
       createdAt: now,
     };
     this.memory.mapHazards.unshift(pin);
-    return pin;
+    return this.toPublicMemoryHazard(pin, reporterId);
   }
 
   public async getUserHazardVotes(
@@ -2777,12 +2899,19 @@ class DatabaseService {
   public async voteMapHazardAnalysis(
     id: string,
     status: 'unsolved' | 'being_solved' | 'false_report',
-    voterKey?: string
+    voterKey?: string,
+    viewerUserId?: string | null
   ): Promise<{
     hazard: DbMapHazard;
     userVote: { unsolved: boolean; false_report: boolean; being_solved: boolean };
   } | null> {
     await this.waitForInit();
+    const resolvedViewerId =
+      viewerUserId !== undefined
+        ? viewerUserId
+        : voterKey && voterKey.startsWith('user:')
+          ? voterKey.slice(5)
+          : null;
 
     if (this.isUsingPostgres()) {
       if (!voterKey) {
@@ -2796,12 +2925,12 @@ class DatabaseService {
           `UPDATE map_hazards
            SET ${col} = ${col} + 1
            WHERE id = $1
-           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
+           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, image_url, reporter_id, is_user_pinned, created_at`,
           [id]
         );
         if (res.rows.length === 0) return null;
         return {
-          hazard: this.mapHazardRow(res.rows[0]),
+          hazard: this.mapHazardRow(res.rows[0], resolvedViewerId),
           userVote: {
             unsolved: status === 'unsolved',
             false_report: status === 'false_report',
@@ -2854,13 +2983,13 @@ class DatabaseService {
              false_report_count = GREATEST(0, false_report_count + $3),
              being_solved_count = GREATEST(0, being_solved_count + $4)
            WHERE id = $1
-           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, is_user_pinned, created_at`,
+           RETURNING id, kind, title, description, area, province, lat, lon, severity, confirmations, false_report_count, being_solved_count, image_url, reporter_id, is_user_pinned, created_at`,
           [id, dUnsolved, dFalse, dSolved]
         );
 
         await client.query('COMMIT');
         return {
-          hazard: this.mapHazardRow(updatedRes.rows[0]),
+          hazard: this.mapHazardRow(updatedRes.rows[0], resolvedViewerId),
           userVote: next,
         };
       } catch (err) {
@@ -2883,7 +3012,7 @@ class DatabaseService {
         found.confirmations += 1;
       }
       return {
-        hazard: found,
+        hazard: this.toPublicMemoryHazard(found, resolvedViewerId),
         userVote: {
           unsolved: status === 'unsolved',
           false_report: status === 'false_report',
@@ -2905,12 +3034,69 @@ class DatabaseService {
     found.falseReportCount = Math.max(0, (found.falseReportCount || 0) + dFalse);
     found.beingSolvedCount = Math.max(0, (found.beingSolvedCount || 0) + dSolved);
 
-    return { hazard: found, userVote: next };
+    return { hazard: this.toPublicMemoryHazard(found, resolvedViewerId), userVote: next };
   }
 
   public async confirmMapHazard(id: string): Promise<DbMapHazard | null> {
     const res = await this.voteMapHazardAnalysis(id, 'unsolved');
     return res ? res.hazard : null;
+  }
+
+  public async deleteMapHazardByReporter(
+    id: string,
+    requesterUserId: string
+  ): Promise<{ status: 'deleted' | 'not_found' | 'forbidden'; hazard?: { kind: string; area: string; province: string } }> {
+    await this.waitForInit();
+    if (!id || !requesterUserId) {
+      return { status: 'forbidden' };
+    }
+
+    if (this.isUsingPostgres()) {
+      const lookup = await this.pool!.query(
+        `SELECT id, reporter_id, kind, area, province FROM map_hazards WHERE id = $1`,
+        [id]
+      );
+      if (lookup.rows.length === 0) {
+        return { status: 'not_found' };
+      }
+      const row = lookup.rows[0];
+      if (!row.reporter_id || row.reporter_id !== requesterUserId) {
+        return { status: 'forbidden' };
+      }
+
+      const delRes = await this.pool!.query(
+        `DELETE FROM map_hazards WHERE id = $1 AND reporter_id = $2 RETURNING id`,
+        [id, requesterUserId]
+      );
+      if (delRes.rows.length === 0) {
+        return { status: 'forbidden' };
+      }
+      return {
+        status: 'deleted',
+        hazard: { kind: row.kind, area: row.area, province: row.province },
+      };
+    }
+
+    const idx = this.memory.mapHazards.findIndex((h) => h.id === id);
+    if (idx === -1) {
+      return { status: 'not_found' };
+    }
+    const existing = this.memory.mapHazards[idx];
+    if (!existing.reporterId || existing.reporterId !== requesterUserId) {
+      return { status: 'forbidden' };
+    }
+
+    this.memory.mapHazards.splice(idx, 1);
+    const votePrefix = `${id}::`;
+    for (const key of Object.keys(this.memory.mapHazardVotes)) {
+      if (key.startsWith(votePrefix)) {
+        delete this.memory.mapHazardVotes[key];
+      }
+    }
+    return {
+      status: 'deleted',
+      hazard: { kind: existing.kind, area: existing.area, province: existing.province },
+    };
   }
   // HELPERS
 

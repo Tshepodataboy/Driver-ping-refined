@@ -27,11 +27,13 @@ export const isDemoUser = (user?: User | null): boolean => {
 
 interface AppContextType {
   user: User | null;
+  authToken: string | null;
   currentUserId: string;
   isDemoAccount: boolean;
   activeTab: TabKey;
   previousTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
+  homeNavigationTick: number;
   reportCategoryPreset: ReportCategory | null;
   setReportCategoryPreset: (cat: ReportCategory | null) => void;
   vehicles: Vehicle[];
@@ -145,11 +147,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return 'home';
   });
 
+  const [homeNavigationTick, setHomeNavigationTick] = useState<number>(0);
+
   const setActiveTab = (tab: TabKey) => {
     setActiveTabState((prev) => {
       setPreviousTab(prev);
       return tab;
     });
+    if (tab === 'home') {
+      setHomeNavigationTick((n) => n + 1);
+    }
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('driver_ping_active_tab', tab);
     }
@@ -782,11 +789,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         user,
+        authToken,
         currentUserId,
         isDemoAccount,
         activeTab,
         previousTab,
         setActiveTab,
+        homeNavigationTick,
         reportCategoryPreset,
         setReportCategoryPreset,
         vehicles: enrichedVehicles,

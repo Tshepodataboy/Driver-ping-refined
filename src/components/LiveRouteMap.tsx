@@ -7,22 +7,23 @@ import {
   SlidersHorizontal,
   Layers,
   Navigation,
-  LayoutGrid,
   MapPin,
   AlertTriangle,
+  AlertCircle,
   Siren,
   Car,
   X,
-  Plus,
   ArrowUpDown,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Loader2,
-  ThumbsUp,
-  LocateFixed,
-  Wifi,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { useApp } from '../context/AppContext.js';
+import { compressImageFile } from '../utils/imageUpload.js';
+import { SA_PROVINCES } from '../constants/provinces.js';
 import {
   getClientVoterId,
   getStoredHazardVotes,
@@ -48,8 +49,10 @@ export interface MapHazardPin {
   confirmations: number;
   falseReportCount?: number;
   beingSolvedCount?: number;
+  imageUrl?: string | null;
   createdAt: string;
   isUserPinned?: boolean;
+  canDelete?: boolean;
 }
 
 interface GeocodePlace {
@@ -97,6 +100,42 @@ const PROVINCE_VIEWPORTS: Record<string, { label: string; center: [number, numbe
   NW: { label: 'NW', center: [-25.67, 27.24], zoom: 10 },
   NC: { label: 'NC', center: [-28.73, 24.76], zoom: 10 },
 };
+
+const METRO_SUBURBS: Record<string, string[]> = {
+  johannesburg: ['sandton', 'midrand', 'bedfordview', 'randburg', 'roodepoort', 'soweto', 'allandale', 'grayston', 'gilloolys'],
+  'cape town': ['century city', 'observatory', 'hospital bend', 'sable square', 'sea point', 'claremont', 'bellville'],
+  durban: ['westville', 'umhlanga', 'pinetown', 'la lucia', 'spaghetti'],
+};
+
+const DEFAULT_FILTER_CITIES = [
+  'Johannesburg',
+  'Pretoria',
+  'Cape Town',
+  'Durban',
+  'Gqeberha',
+  'Bloemfontein',
+  'Polokwane',
+  'Mbombela',
+  'Rustenburg',
+  'Kimberley',
+];
+
+function toSAProvinceCode(code: string): string {
+  const upper = code.trim().toUpperCase();
+  if (upper === 'KZN') return 'ZN';
+  if (upper === 'LP') return 'L';
+  return upper;
+}
+
+function matchesHazardCity(hazard: MapHazardPin, selectedCity: string): boolean {
+  if (!selectedCity || selectedCity === 'ALL') return true;
+  const needle = selectedCity.trim().toLowerCase();
+  const haystack = `${hazard.area} ${hazard.title} ${hazard.description}`.toLowerCase();
+  if (haystack.includes(needle)) return true;
+  const suburbs = METRO_SUBURBS[needle];
+  if (suburbs && suburbs.some((sub) => haystack.includes(sub))) return true;
+  return false;
+}
 
 function formatDistance(meters: number): string {
   if (!Number.isFinite(meters) || meters <= 0) return '0 m';
@@ -221,6 +260,7 @@ export function LiveRouteMap({
   initialHazard = null,
   onHazardsChanged,
 }: LiveRouteMapProps) {
+  const { authToken } = useApp();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const hazardLayerRef = useRef<L.LayerGroup | null>(null);
@@ -231,7 +271,6 @@ export function LiveRouteMap({
   const topoTileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
-  const [freeRouteOnline, setFreeRouteOnline] = useState<boolean | null>(null);
   const [isTopoMode, setIsTopoMode] = useState(false);
   const [scaleBar, setScaleBar] = useState<{ mid: string; max: string; widthPx: number }>({
     mid: '50 km',
@@ -242,10 +281,10 @@ export function LiveRouteMap({
   // Maps-only GPS permission state
   const [geoPermission, setGeoPermission] = useState<'granted' | 'prompt' | 'denied' | 'unsupported'>('prompt');
   const [userGeoCoords, setUserGeoCoords] = useState<{ lat: number; lon: number; accuracy?: number } | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
 
   // Filters & Hazards
-  const [kindFilter, setKindFilter] = useState<'all' | 'pothole' | 'accident' | 'traffic'>('all');
+  const [kindFilter, setKindFilter] = useState<'all' | 'pothole' | 'accident' | 'alert'>('all');
+  const [cityFilter, setCityFilter] = useState<string>('ALL');
   const [hazards, setHazards] = useState<MapHazardPin[]>([]);
   const [selectedHazard, setSelectedHazard] = useState<MapHazardPin | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -254,8 +293,8 @@ export function LiveRouteMap({
   );
 
   // Floating Popovers & Drawers
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [showLayersPanel, setShowLayersPanel] = useState(false);
-  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [isAlertListExpanded, setIsAlertListExpanded] = useState(false);
 
@@ -263,6 +302,7 @@ export function LiveRouteMap({
   const [areaSearchQuery, setAreaSearchQuery] = useState('');
   const [areaSuggestions, setAreaSuggestions] = useState<GeocodePlace[]>([]);
   const [isSearchingArea, setIsSearchingArea] = useState(false);
+  const [searchedAreaPlace, setSearchedAreaPlace] = useState<GeocodePlace | null>(null);
 
   // Route Planner State (FreeRoute)
   const [originQuery, setOriginQuery] = useState('Your location');
@@ -278,50 +318,47 @@ export function LiveRouteMap({
   const [activeRoute, setActiveRoute] = useState<ComputedRoute | null>(null);
   const [showSteps, setShowSteps] = useState(false);
 
-  // Tap-to-Pin / Type / Network Hazard Mode
+  // Tap-to-Pin Hazard Mode
   const [isPinMode, setIsPinMode] = useState(false);
-  const [pinLocationMode, setPinLocationMode] = useState<'map' | 'type' | 'network'>('map');
+  const [isAwaitingMapPick, setIsAwaitingMapPick] = useState(false);
   const [pendingPinCoords, setPendingPinCoords] = useState<{
     lat: number;
     lon: number;
     area: string;
     province?: string;
   } | null>(null);
-  const [pinLocationQuery, setPinLocationQuery] = useState('');
-  const [pinLocationSuggestions, setPinLocationSuggestions] = useState<GeocodePlace[]>([]);
-  const [isSearchingPinLocation, setIsSearchingPinLocation] = useState(false);
-  const [isDetectingPinNetwork, setIsDetectingPinNetwork] = useState(false);
-  const [pinKind, setPinKind] = useState<'pothole' | 'accident' | 'traffic'>('pothole');
+  const [pinKind, setPinKind] = useState<'pothole' | 'accident' | 'alert'>('pothole');
+  const [pinOtherType, setPinOtherType] = useState('');
   const [pinTitle, setPinTitle] = useState('');
   const [pinDescription, setPinDescription] = useState('');
+  const [pinImageUrl, setPinImageUrl] = useState<string | null>(null);
   const [isSubmittingPin, setIsSubmittingPin] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
 
   const isPinModeRef = useRef(isPinMode);
+  const isAwaitingMapPickRef = useRef(isAwaitingMapPick);
+  const lastMarkerClickAtRef = useRef(0);
+  const suppressAreaAutocompleteForRef = useRef<string | null>(null);
+  const overlayOpenRef = useRef(false);
+  overlayOpenRef.current =
+    showFiltersPanel ||
+    showLayersPanel ||
+    areaSuggestions.length > 0 ||
+    Boolean(searchedAreaPlace);
+
   useEffect(() => {
     isPinModeRef.current = isPinMode;
+    isAwaitingMapPickRef.current = isAwaitingMapPick;
     if (mapContainerRef.current) {
-      mapContainerRef.current.style.cursor = isPinMode ? 'crosshair' : '';
+      mapContainerRef.current.style.cursor = isPinMode && isAwaitingMapPick ? 'crosshair' : '';
     }
-  }, [isPinMode]);
+  }, [isPinMode, isAwaitingMapPick]);
 
-  // 1. Check FreeRoute server connectivity
   useEffect(() => {
-    let active = true;
-    fetch('/api/map/status')
-      .then((r) => r.json())
-      .then((data) => {
-        if (active) setFreeRouteOnline(Boolean(data?.configured));
-      })
-      .catch(() => {
-        if (active) setFreeRouteOnline(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    setCityFilter('ALL');
+  }, [provinceFilter]);
 
-  // 2. Initialize Leaflet Map
+  // 1. Initialize Leaflet Map
   useEffect(() => {
     const container = mapContainerRef.current;
     if (!container || mapRef.current) return;
@@ -373,15 +410,25 @@ export function LiveRouteMap({
     map.on('zoomend moveend', updateScale);
 
     map.on('click', async (ev: L.LeafletMouseEvent) => {
+      if (Date.now() - lastMarkerClickAtRef.current < 250) return;
+
+      const hadOverlayOpen = overlayOpenRef.current;
+      setShowFiltersPanel(false);
       setShowLayersPanel(false);
-      setShowToolsMenu(false);
       setActiveRouteField(null);
       setAreaSuggestions([]);
+      setSearchedAreaPlace(null);
 
-      if (!isPinModeRef.current) return;
+      if (hadOverlayOpen) return;
+
       const { lat, lng } = ev.latlng;
-      setPinLocationMode('map');
-      setPinLocationSuggestions([]);
+      setSelectedHazard(null);
+      setShowRoutePlanner(false);
+      setIsAlertListExpanded(false);
+      setIsPinMode(true);
+      if (!isPinModeRef.current || isAwaitingMapPickRef.current) {
+        setIsAwaitingMapPick(true);
+      }
       setPendingPinCoords({
         lat,
         lon: lng,
@@ -392,11 +439,12 @@ export function LiveRouteMap({
         const res = await fetch(`/api/map/reverse?lat=${lat}&lon=${lng}`);
         if (res.ok) {
           const data = await res.json();
-          if (data?.place?.shortLabel) {
+          const exactAddress = data?.place?.label || data?.place?.shortLabel;
+          if (exactAddress) {
             setPendingPinCoords({
               lat,
               lon: lng,
-              area: data.place.shortLabel,
+              area: exactAddress,
               province: resolveProvinceFromName(data.place.provinceName),
             });
           }
@@ -571,7 +619,11 @@ export function LiveRouteMap({
         kind: kindFilter,
         voterId: getClientVoterId(),
       });
-      const res = await fetch(`/api/map/hazards?${params.toString()}`);
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      const res = await fetch(`/api/map/hazards?${params.toString()}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setHazards(Array.isArray(data?.hazards) ? data.hazards : []);
@@ -586,7 +638,45 @@ export function LiveRouteMap({
 
   useEffect(() => {
     fetchHazards();
-  }, [provinceFilter, kindFilter]);
+  }, [provinceFilter, kindFilter, authToken]);
+
+  const visibleHazards =
+    cityFilter === 'ALL'
+      ? hazards
+      : hazards.filter((h) => matchesHazardCity(h, cityFilter));
+
+  const filterCityOptions = (() => {
+    if (provinceFilter === 'ALL') return DEFAULT_FILTER_CITIES;
+    const prov = SA_PROVINCES.find((p) => p.code === toSAProvinceCode(provinceFilter));
+    return prov ? prov.cities : DEFAULT_FILTER_CITIES;
+  })();
+
+  const handleSelectCityFilter = async (city: string) => {
+    setCityFilter(city);
+    if (city === 'ALL') {
+      const viewport = PROVINCE_VIEWPORTS[provinceFilter] || PROVINCE_VIEWPORTS.ALL;
+      mapRef.current?.flyTo(viewport.center, viewport.zoom, { duration: 0.7 });
+      return;
+    }
+    const matching = hazards.find((h) => matchesHazardCity(h, city));
+    try {
+      const provObj = SA_PROVINCES.find((p) => p.code === toSAProvinceCode(provinceFilter));
+      const query = provObj ? `${city}, ${provObj.name}, South Africa` : `${city}, South Africa`;
+      const res = await fetch(`/api/map/geocode?q=${encodeURIComponent(query)}&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.places?.[0]) {
+          mapRef.current?.flyTo([data.places[0].lat, data.places[0].lon], 12, { duration: 0.7 });
+          return;
+        }
+      }
+    } catch {
+      // Fallback to matching hazard coordinates
+    }
+    if (matching) {
+      mapRef.current?.flyTo([matching.lat, matching.lon], 12, { duration: 0.7 });
+    }
+  };
 
   // 5. Render hazard markers onto Leaflet layer
   useEffect(() => {
@@ -594,21 +684,24 @@ export function LiveRouteMap({
     if (!layer || !mapReady) return;
     layer.clearLayers();
 
-    for (const h of hazards) {
+    for (const h of visibleHazards) {
       const isSelected = selectedHazard?.id === h.id;
       const marker = L.marker([h.lat, h.lon], {
         icon: buildHazardIcon(h.kind, isSelected),
       });
-      marker.on('click', () => {
+      marker.on('click', (ev) => {
+        L.DomEvent.stopPropagation(ev);
+        lastMarkerClickAtRef.current = Date.now();
         setSelectedHazard(h);
+        setShowFiltersPanel(false);
         setShowLayersPanel(false);
-        setShowToolsMenu(false);
         setShowRoutePlanner(false);
         setIsAlertListExpanded(false);
+        setSearchedAreaPlace(null);
       });
       marker.addTo(layer);
     }
-  }, [hazards, selectedHazard, mapReady]);
+  }, [visibleHazards, selectedHazard, mapReady]);
 
   // 5b. Render live preview pin marker whenever user places/picks a new pin location
   useEffect(() => {
@@ -634,7 +727,13 @@ export function LiveRouteMap({
       zIndexOffset: 1000,
     }).addTo(layer);
 
+    previewMarker.on('click', (ev) => {
+      L.DomEvent.stopPropagation(ev);
+      lastMarkerClickAtRef.current = Date.now();
+    });
+
     previewMarker.on('dragend', async () => {
+      lastMarkerClickAtRef.current = Date.now();
       const pos = previewMarker.getLatLng();
       setPendingPinCoords({
         lat: pos.lat,
@@ -645,11 +744,12 @@ export function LiveRouteMap({
         const res = await fetch(`/api/map/reverse?lat=${pos.lat}&lon=${pos.lng}`);
         if (res.ok) {
           const data = await res.json();
-          if (data?.place?.shortLabel) {
+          const exactAddress = data?.place?.label || data?.place?.shortLabel;
+          if (exactAddress) {
             setPendingPinCoords({
               lat: pos.lat,
               lon: pos.lng,
-              area: data.place.shortLabel,
+              area: exactAddress,
               province: resolveProvinceFromName(data.place.provinceName),
             });
           }
@@ -700,27 +800,45 @@ export function LiveRouteMap({
   // 7a. Debounced Top "Map area" search suggestions
   useEffect(() => {
     const q = areaSearchQuery.trim();
-    if (q.length < 2) {
+    if (
+      q.length < 2 ||
+      (searchedAreaPlace && searchedAreaPlace.shortLabel === q) ||
+      suppressAreaAutocompleteForRef.current === q
+    ) {
       setAreaSuggestions([]);
       setIsSearchingArea(false);
       return;
     }
+    let cancelled = false;
+    const controller = new AbortController();
     setIsSearchingArea(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/map/geocode?q=${encodeURIComponent(q)}&limit=5`);
-        if (res.ok) {
+        const res = await fetch(`/api/map/geocode?q=${encodeURIComponent(q)}&limit=5`, {
+          signal: controller.signal,
+        });
+        if (res.ok && !cancelled && suppressAreaAutocompleteForRef.current !== q) {
           const data = await res.json();
-          setAreaSuggestions(Array.isArray(data?.places) ? data.places : []);
+          if (!cancelled && suppressAreaAutocompleteForRef.current !== q) {
+            setAreaSuggestions(Array.isArray(data?.places) ? data.places : []);
+          }
         }
       } catch {
-        setAreaSuggestions([]);
+        if (!cancelled) {
+          setAreaSuggestions([]);
+        }
       } finally {
-        setIsSearchingArea(false);
+        if (!cancelled) {
+          setIsSearchingArea(false);
+        }
       }
     }, 260);
-    return () => clearTimeout(timer);
-  }, [areaSearchQuery]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [areaSearchQuery, searchedAreaPlace]);
 
   // 7b. Debounced Route Origin/Dest autocomplete
   useEffect(() => {
@@ -768,36 +886,6 @@ export function LiveRouteMap({
     }, 260);
     return () => clearTimeout(timer);
   }, [destQuery, activeRouteField, destPlace]);
-
-  // 7c. Debounced autocomplete for typed Add-Pin location search
-  useEffect(() => {
-    if (!isPinMode || pinLocationMode !== 'type') {
-      setPinLocationSuggestions([]);
-      setIsSearchingPinLocation(false);
-      return;
-    }
-    const q = pinLocationQuery.trim();
-    if (q.length < 2 || (pendingPinCoords && pendingPinCoords.area === pinLocationQuery)) {
-      setPinLocationSuggestions([]);
-      setIsSearchingPinLocation(false);
-      return;
-    }
-    setIsSearchingPinLocation(true);
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/map/geocode?q=${encodeURIComponent(q)}&limit=5`);
-        if (res.ok) {
-          const data = await res.json();
-          setPinLocationSuggestions(Array.isArray(data?.places) ? data.places : []);
-        }
-      } catch {
-        setPinLocationSuggestions([]);
-      } finally {
-        setIsSearchingPinLocation(false);
-      }
-    }, 260);
-    return () => clearTimeout(timer);
-  }, [pinLocationQuery, pinLocationMode, isPinMode, pendingPinCoords]);
 
   // Resolve "Your location" via browser GPS (maps-only permission; graceful fallback to map center)
   const resolveCurrentOrigin = async (): Promise<GeocodePlace> => {
@@ -920,57 +1008,53 @@ export function LiveRouteMap({
     }
   };
 
-  const handleUseMyLocation = () => {
-    setRouteError(null);
-    setShowToolsMenu(false);
-
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGeoPermission('unsupported');
-      setRouteError('Location is not supported in this browser. Type a suburb or city.');
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        setGeoPermission('granted');
-        setUserGeoCoords({ lat, lon, accuracy: pos.coords.accuracy });
-        const place: GeocodePlace = {
-          label: 'Your location',
-          shortLabel: 'Your location',
-          lat,
-          lon,
-        };
-        setOriginPlace(place);
-        setOriginQuery('Your location');
-        setOriginSuggestions([]);
-        mapRef.current?.flyTo([lat, lon], 14, { duration: 0.7 });
-      },
-      (err) => {
-        setIsLocating(false);
-        if (err.code === 1) {
-          setGeoPermission('denied');
-          setRouteError('Location permission is blocked. Allow location for Maps in browser settings or search an area.');
-        } else {
-          setRouteError('Could not get your GPS location right now. Search a suburb or city instead.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
-    );
-  };
-
   const handleSelectAreaPlace = (place: GeocodePlace) => {
+    suppressAreaAutocompleteForRef.current = place.shortLabel.trim();
     setAreaSearchQuery(place.shortLabel);
     setAreaSuggestions([]);
-    setDestPlace(place);
-    setDestQuery(place.shortLabel);
-    mapRef.current?.flyTo([place.lat, place.lon], 13, { duration: 0.7 });
-    setShowRoutePlanner(true);
+    setIsSearchingArea(false);
+    setSearchedAreaPlace(place);
+    setShowFiltersPanel(false);
+    setShowLayersPanel(false);
+    mapRef.current?.flyTo([place.lat, place.lon], 14, { duration: 0.7 });
+  };
+
+  const handleViewSearchedArea = () => {
+    if (!searchedAreaPlace) return;
+    const place = searchedAreaPlace;
+    suppressAreaAutocompleteForRef.current = place.shortLabel.trim();
+    setAreaSuggestions([]);
+    setIsSearchingArea(false);
+    setSearchedAreaPlace(null);
+    handleCancelPinMode();
     setSelectedHazard(null);
+    setShowRoutePlanner(false);
     setIsAlertListExpanded(false);
+    mapRef.current?.flyTo([place.lat, place.lon], 15, { duration: 0.7 });
+  };
+
+  const handleAddPinAtSearchedArea = () => {
+    if (!searchedAreaPlace) return;
+    const place = searchedAreaPlace;
+    suppressAreaAutocompleteForRef.current = place.shortLabel.trim();
+    setAreaSuggestions([]);
+    setIsSearchingArea(false);
+    setSearchedAreaPlace(null);
+    setSelectedHazard(null);
+    setShowRoutePlanner(false);
+    setIsAlertListExpanded(false);
+    setShowFiltersPanel(false);
+    setShowLayersPanel(false);
+    setIsPinMode(true);
+    setIsAwaitingMapPick(false);
+    setPinError(null);
+    setPendingPinCoords({
+      lat: place.lat,
+      lon: place.lon,
+      area: place.label || place.shortLabel,
+      province: resolveProvinceFromName(place.provinceName, provinceFilter),
+    });
+    mapRef.current?.flyTo([place.lat, place.lon], 15, { duration: 0.7 });
   };
 
   const handleSearchAreaSubmit = async (e: React.FormEvent) => {
@@ -1025,9 +1109,13 @@ export function LiveRouteMap({
   ) => {
     setConfirmingId(id);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
       const res = await fetch(`/api/map/hazards/${id}/analysis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ status, voterId: getClientVoterId() }),
       });
       const data = await res.json().catch(() => null);
@@ -1044,165 +1132,77 @@ export function LiveRouteMap({
     }
   };
 
-  const handleRouteToHazard = (hazard: MapHazardPin) => {
-    const dest: GeocodePlace = {
-      label: hazard.area,
-      shortLabel: hazard.area,
-      lat: hazard.lat,
-      lon: hazard.lon,
-    };
-    setDestPlace(dest);
-    setDestQuery(hazard.area);
-    setSelectedHazard(null);
-    void calculateRouteBetween(originPlace, dest);
-  };
-
-  const handleSelectTypedPinPlace = (place: GeocodePlace) => {
-    setPinError(null);
-    setPinLocationQuery(place.shortLabel);
-    setPinLocationSuggestions([]);
-    setPendingPinCoords({
-      lat: place.lat,
-      lon: place.lon,
-      area: place.shortLabel,
-      province: resolveProvinceFromName(place.provinceName, provinceFilter),
-    });
-    mapRef.current?.flyTo([place.lat, place.lon], 15, { duration: 0.7 });
-  };
-
-  const handleSearchTypedPinLocation = async () => {
-    const q = pinLocationQuery.trim();
-    if (q.length < 2) {
-      setPinError('Type a street name, suburb, or city to place the pin.');
-      return;
-    }
-    if (pinLocationSuggestions[0]) {
-      handleSelectTypedPinPlace(pinLocationSuggestions[0]);
-      return;
-    }
-    setIsSearchingPinLocation(true);
-    setPinError(null);
-    try {
-      const res = await fetch(`/api/map/geocode?q=${encodeURIComponent(q)}&limit=1`);
-      const data = await res.json();
-      if (res.ok && data?.places?.[0]) {
-        handleSelectTypedPinPlace(data.places[0]);
-      } else {
-        setPinError('Location not found. Try a street, suburb, or city name.');
-      }
-    } catch {
-      setPinError('Could not look up that location right now.');
-    } finally {
-      setIsSearchingPinLocation(false);
-    }
-  };
-
-  const handleUseNetworkLocationForPin = async () => {
-    setPinLocationMode('network');
-    setPinError(null);
-    setIsDetectingPinNetwork(true);
-
-    const applyDetectedCoords = async (lat: number, lon: number, fallbackArea?: string, provinceName?: string) => {
-      let area = fallbackArea || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-      let resolvedProvince = resolveProvinceFromName(provinceName, provinceFilter);
-
-      try {
-        const revRes = await fetch(`/api/map/reverse?lat=${lat}&lon=${lon}`);
-        if (revRes.ok) {
-          const revData = await revRes.json();
-          if (revData?.place?.shortLabel) {
-            area = revData.place.shortLabel;
-            resolvedProvince = resolveProvinceFromName(revData.place.provinceName, resolvedProvince);
-          }
-        }
-      } catch {
-        // Keep initial area string
-      }
-
-      setPendingPinCoords({ lat, lon, area, province: resolvedProvince });
-      mapRef.current?.flyTo([lat, lon], 15, { duration: 0.7 });
-    };
-
-    try {
-      // 1. Try browser network/Wi-Fi location first if permitted
-      if (
-        typeof navigator !== 'undefined' &&
-        navigator.geolocation &&
-        geoPermission !== 'denied' &&
-        geoPermission !== 'unsupported'
-      ) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 3500,
-              maximumAge: 30000,
-            });
-          });
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          setGeoPermission('granted');
-          setUserGeoCoords({ lat, lon, accuracy: pos.coords.accuracy });
-          await applyDetectedCoords(lat, lon);
-          return;
-        } catch (err: any) {
-          if (err?.code === 1) {
-            setGeoPermission('denied');
-          }
-        }
-      }
-
-      // 2. Network IP geolocation fallback via backend
-      const netRes = await fetch('/api/map/network-location');
-      const netData = await netRes.json();
-      if (!netRes.ok || !netData?.location) {
-        setPinError(netData?.error || 'Could not detect your current location through the network.');
-        return;
-      }
-      const { lat, lon, area, provinceName } = netData.location;
-      await applyDetectedCoords(Number(lat), Number(lon), area, provinceName);
-    } catch {
-      setPinError('Could not detect your current location through the network.');
-    } finally {
-      setIsDetectingPinNetwork(false);
-    }
-  };
-
   const handleCancelPinMode = () => {
     setIsPinMode(false);
+    setIsAwaitingMapPick(false);
     setPendingPinCoords(null);
-    setPinLocationQuery('');
-    setPinLocationSuggestions([]);
-    setPinLocationMode('map');
+    setPinOtherType('');
+    setPinImageUrl(null);
     setPinError(null);
+  };
+
+  const handlePinImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPinError(null);
+    try {
+      const dataUrl = await compressImageFile(file);
+      setPinImageUrl(dataUrl);
+    } catch (err: any) {
+      setPinError(err?.message || 'Could not load that image.');
+    }
   };
 
   const handleSubmitHazardPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingPinCoords) {
-      setPinError('Choose a location first: tap on the map, type a place, or use current network location.');
+      setPinError('Tap anywhere on the map or search an address in Map area to set a pin.');
       return;
     }
-    if (pinTitle.trim().length < 2) {
-      setPinError('Please add a brief description (at least 2 characters).');
+    if (pinKind === 'alert' && pinOtherType.trim().length < 2 && !pinImageUrl && pinTitle.trim().length < 2) {
+      setPinError('Please type what the other hazard is or attach a photo.');
+      return;
+    }
+    const trimmedTitle = pinTitle.trim();
+    const trimmedOther = pinOtherType.trim();
+    const fallbackPhotoTitle =
+      pinKind === 'pothole'
+        ? 'Pothole photo report'
+        : pinKind === 'accident'
+          ? 'Accident photo report'
+          : trimmedOther || 'Road photo report';
+    const finalTitle =
+      pinKind === 'alert'
+        ? trimmedOther && trimmedTitle
+          ? `${trimmedOther}: ${trimmedTitle}`
+          : trimmedOther || trimmedTitle || (pinImageUrl ? fallbackPhotoTitle : '')
+        : trimmedTitle || (pinImageUrl ? fallbackPhotoTitle : '');
+    if (finalTitle.length < 2) {
+      setPinError('Please add a brief description (at least 2 characters) or attach a photo.');
       return;
     }
 
     setIsSubmittingPin(true);
     setPinError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
       const res = await fetch('/api/map/hazards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           kind: pinKind,
-          title: pinTitle.trim(),
+          title: finalTitle,
           description: pinDescription.trim() || `Reported near ${pendingPinCoords.area}`,
           area: pendingPinCoords.area,
           province:
             pendingPinCoords.province || (provinceFilter === 'ALL' ? 'GP' : provinceFilter),
           lat: pendingPinCoords.lat,
           lon: pendingPinCoords.lon,
+          imageUrl: pinImageUrl,
         }),
       });
       const data = await res.json();
@@ -1216,11 +1216,11 @@ export function LiveRouteMap({
         onHazardsChanged?.();
       }
       setPendingPinCoords(null);
+      setPinOtherType('');
       setPinTitle('');
       setPinDescription('');
-      setPinLocationQuery('');
-      setPinLocationSuggestions([]);
-      setPinLocationMode('map');
+      setPinImageUrl(null);
+      setIsAwaitingMapPick(false);
       setIsPinMode(false);
     } catch (err: any) {
       setPinError(err?.message || 'Failed to pin hazard.');
@@ -1265,7 +1265,11 @@ export function LiveRouteMap({
             <input
               type="text"
               value={areaSearchQuery}
-              onChange={(e) => setAreaSearchQuery(e.target.value)}
+              onChange={(e) => {
+                suppressAreaAutocompleteForRef.current = null;
+                setAreaSearchQuery(e.target.value);
+                setSearchedAreaPlace(null);
+              }}
               placeholder="Map area"
               className="flex-1 min-w-0 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-700 focus:outline-none truncate px-1"
             />
@@ -1276,8 +1280,10 @@ export function LiveRouteMap({
               <button
                 type="button"
                 onClick={() => {
+                  suppressAreaAutocompleteForRef.current = null;
                   setAreaSearchQuery('');
                   setAreaSuggestions([]);
+                  setSearchedAreaPlace(null);
                 }}
                 className="w-7 h-7 rounded-full hover:bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 cursor-pointer"
                 aria-label="Clear search"
@@ -1289,26 +1295,126 @@ export function LiveRouteMap({
             <button
               type="button"
               onClick={() => {
-                setShowRoutePlanner((v) => !v);
+                setShowFiltersPanel((v) => !v);
                 setShowLayersPanel(false);
-                setShowToolsMenu(false);
+                setShowRoutePlanner(false);
                 setSelectedHazard(null);
                 setIsAlertListExpanded(false);
+                setSearchedAreaPlace(null);
               }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-                showRoutePlanner
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer relative ${
+                showFiltersPanel
                   ? 'bg-gray-900 text-white'
                   : 'hover:bg-gray-100 text-gray-800'
               }`}
-              aria-label="Route and area filters"
-              title="Route planner & filters"
+              aria-label="Map filters"
+              title="Map filters"
             >
               <SlidersHorizontal className="w-4 h-4" />
+              {(provinceFilter !== 'ALL' || cityFilter !== 'ALL') && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#89F358] ring-1 ring-gray-900" />
+              )}
             </button>
           </form>
 
+          {/* Map Filters Popover (Province & City only) */}
+          {showFiltersPanel && (
+            <div className="pointer-events-auto mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-gray-900">
+                  Filter by Province &amp; City
+                </span>
+                <div className="flex items-center gap-2">
+                  {(provinceFilter !== 'ALL' || cityFilter !== 'ALL') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onProvinceFilterChange('ALL');
+                        setCityFilter('ALL');
+                      }}
+                      className="text-[11px] font-bold text-[#941329] hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowFiltersPanel(false)}
+                    className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer"
+                    aria-label="Close filters"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1.5">
+                  Province
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(PROVINCE_VIEWPORTS).map(([code, meta]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => onProvinceFilterChange(code)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                        provinceFilter === code
+                          ? 'bg-[#89F358] text-gray-950 border-[#65C438]'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {meta.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1.5">
+                  City
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-0.5">
+                  <button
+                    type="button"
+                    onClick={() => void handleSelectCityFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                      cityFilter === 'ALL'
+                        ? 'bg-gray-950 text-white border-gray-950'
+                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    All Cities
+                  </button>
+                  {filterCityOptions.map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => void handleSelectCityFilter(city)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                        cityFilter === city
+                          ? 'bg-gray-950 text-white border-gray-950'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowFiltersPanel(false)}
+                className="w-full py-2 bg-[#89F358] hover:bg-[#7CE84B] text-gray-950 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+              >
+                Show {visibleHazards.length} {visibleHazards.length === 1 ? 'Alert' : 'Alerts'}
+              </button>
+            </div>
+          )}
+
           {/* Search Autocomplete Dropdown */}
-          {areaSuggestions.length > 0 && (
+          {areaSuggestions.length > 0 && !searchedAreaPlace && !isPinMode && (
             <div className="pointer-events-auto mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto divide-y divide-gray-100">
               {areaSuggestions.map((place, idx) => (
                 <button
@@ -1321,11 +1427,59 @@ export function LiveRouteMap({
                     <p className="text-xs font-bold text-gray-900 truncate">{place.shortLabel}</p>
                     <p className="text-[11px] text-gray-500 truncate">{place.label}</p>
                   </div>
-                  <span className="text-[10px] font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
-                    Go
+                  <span className="text-[10px] font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
+                    Select
                   </span>
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Address Action Prompt: View Location or Add Pin */}
+          {searchedAreaPlace && !showFiltersPanel && (
+            <div className="pointer-events-auto mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl p-3 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 min-w-0">
+                  <span className="w-7 h-7 rounded-xl bg-gray-100 text-gray-900 flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-4 h-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-gray-950 truncate">
+                      {searchedAreaPlace.shortLabel}
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {searchedAreaPlace.label}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchedAreaPlace(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer shrink-0"
+                  aria-label="Dismiss address options"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleViewSearchedArea}
+                  className="py-2 px-3 rounded-xl bg-gray-950 hover:bg-gray-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>View Location</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddPinAtSearchedArea}
+                  className="py-2 px-3 rounded-xl bg-[#89F358] hover:bg-[#7CE84B] text-gray-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Add Pin</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -1335,7 +1489,7 @@ export function LiveRouteMap({
               { id: 'all', label: 'All', icon: null },
               { id: 'pothole', label: 'Potholes', icon: AlertTriangle },
               { id: 'accident', label: 'Accidents', icon: Siren },
-              { id: 'traffic', label: 'Traffic', icon: Car },
+              { id: 'alert', label: 'Other', icon: AlertCircle },
             ].map((chip) => {
               const Icon = chip.icon;
               const active = kindFilter === chip.id;
@@ -1344,7 +1498,7 @@ export function LiveRouteMap({
                   key={chip.id}
                   type="button"
                   onClick={() =>
-                    setKindFilter(chip.id as 'all' | 'pothole' | 'accident' | 'traffic')
+                    setKindFilter(chip.id as 'all' | 'pothole' | 'accident' | 'alert')
                   }
                   className={`h-9 px-3.5 rounded-full text-xs whitespace-nowrap flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-[0_3px_12px_rgba(0,0,0,0.10)] ${
                     active
@@ -1362,7 +1516,6 @@ export function LiveRouteMap({
               type="button"
               onClick={() => {
                 setShowLayersPanel((v) => !v);
-                setShowToolsMenu(false);
               }}
               className={`h-9 px-3.5 rounded-full text-xs whitespace-nowrap flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-[0_3px_12px_rgba(0,0,0,0.10)] ${
                 provinceFilter !== 'ALL'
@@ -1376,7 +1529,7 @@ export function LiveRouteMap({
           </div>
         </div>
 
-        {/* TOP-LEFT SCALE BAR + ADD PIN BUTTON + ROUTE ERROR */}
+        {/* TOP-LEFT SCALE BAR + ROUTE ERROR */}
         <div className="absolute top-[116px] left-3.5 z-[460] pointer-events-none flex flex-col items-start gap-2.5">
           {/* Metric Scale Bar matching reference */}
           <div className="flex flex-col select-none">
@@ -1396,49 +1549,6 @@ export function LiveRouteMap({
               <div className="flex-1 bg-white" />
             </div>
           </div>
-
-          {!isPinMode ? (
-            <button
-              type="button"
-              onClick={() => {
-                setIsPinMode(true);
-                setPinLocationMode('map');
-                setPendingPinCoords(null);
-                setPinLocationQuery('');
-                setPinLocationSuggestions([]);
-                setPinError(null);
-                setSelectedHazard(null);
-                setShowRoutePlanner(false);
-                setShowLayersPanel(false);
-                setShowToolsMenu(false);
-                setIsAlertListExpanded(false);
-              }}
-              className="pointer-events-auto h-10 px-3 rounded-2xl bg-[#EBF5FA]/95 hover:bg-white active:scale-95 backdrop-blur-md shadow-[0_6px_18px_rgba(0,0,0,0.14)] border border-white/90 text-gray-900 flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer"
-              aria-label="Add pin on map"
-              title="Tap to add a hazard pin on the map"
-            >
-              <span className="relative inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#1C241E] text-white shrink-0">
-                <MapPin className="w-3 h-3 stroke-[2.2]" />
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#89F358] text-gray-950 flex items-center justify-center">
-                  <Plus className="w-2 h-2 stroke-[3.2]" />
-                </span>
-              </span>
-              <span>Add pin</span>
-            </button>
-          ) : (
-            <div className="pointer-events-auto h-10 bg-gray-950 text-white px-3 rounded-2xl shadow-lg border border-gray-800 flex items-center gap-2 text-xs font-bold">
-              <MapPin className="w-3.5 h-3.5 text-[#89F358] shrink-0" />
-              <span>{pendingPinCoords ? 'Tap map to move pin' : 'Tap map to place pin'}</span>
-              <button
-                type="button"
-                onClick={handleCancelPinMode}
-                className="p-1 rounded-full bg-white/15 hover:bg-white/25 cursor-pointer"
-                aria-label="Cancel pin mode"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
 
           {routeError && (
             <div className="pointer-events-auto max-w-[270px] bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl px-3 py-2 shadow-lg flex items-start justify-between gap-2">
@@ -1464,7 +1574,7 @@ export function LiveRouteMap({
               type="button"
               onClick={() => {
                 setShowLayersPanel((v) => !v);
-                setShowToolsMenu(false);
+                setShowFiltersPanel(false);
               }}
               className={`h-11 w-full flex items-center justify-center transition-colors cursor-pointer ${
                 showLayersPanel ? 'bg-gray-900 text-white' : 'text-gray-900 hover:bg-white/80'
@@ -1556,120 +1666,8 @@ export function LiveRouteMap({
           )}
         </div>
 
-        {/* BOTTOM STACK: FLOATING GPS + GREEN "TOOLS" PILL + WHITE ROUNDED BOTTOM SHEET */}
+        {/* BOTTOM STACK: WHITE ROUNDED BOTTOM SHEET */}
         <div className="absolute bottom-0 inset-x-0 z-[480] flex flex-col pointer-events-none">
-          {/* Row right above white sheet: Bottom-left GPS arrow + Centered green Tools pill */}
-          <div className="max-w-md w-full mx-auto px-3.5 pb-3 relative flex items-center justify-center">
-            {/* Bottom-left GPS Locate button (Maps-only permission) */}
-            <button
-              type="button"
-              onClick={handleUseMyLocation}
-              disabled={isLocating}
-              className={`pointer-events-auto absolute left-3.5 w-11 h-11 rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.16)] border flex items-center justify-center active:scale-95 transition-all cursor-pointer disabled:opacity-75 ${
-                geoPermission === 'granted' && userGeoCoords
-                  ? 'bg-white text-[#1A73E8] border-[#1A73E8]/40'
-                  : 'bg-[#EBF5FA]/95 hover:bg-white text-gray-900 border-white/90'
-              }`}
-              aria-label="Center on my location (Maps only)"
-              title="Center on my location (Maps only)"
-            >
-              {isLocating ? (
-                <Loader2 className="w-5 h-5 animate-spin text-[#1A73E8]" />
-              ) : (
-                <Navigation className="w-4 h-4 stroke-[2.2]" />
-              )}
-            </button>
-
-            {/* Centered Green "Tools" Pill (Exact reference button) */}
-            <div className="relative pointer-events-auto">
-              {showToolsMenu && (
-                <div className="absolute bottom-13 left-1/2 -translate-x-1/2 w-56 bg-white border border-gray-200 rounded-2xl shadow-2xl p-2 space-y-1 z-50">
-                  <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                      Map Tools
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                        freeRouteOnline ? 'text-emerald-700' : 'text-gray-400'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          freeRouteOnline ? 'bg-emerald-500' : 'bg-gray-400'
-                        }`}
-                      />
-                      FreeRoute
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowToolsMenu(false);
-                      setShowRoutePlanner(true);
-                      setSelectedHazard(null);
-                      setIsAlertListExpanded(false);
-                    }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-gray-100 flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Navigation className="w-4 h-4 text-[#1D4ED8]" />
-                    <span>Plan Route</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowToolsMenu(false);
-                      if (isPinMode) {
-                        handleCancelPinMode();
-                      } else {
-                        setIsPinMode(true);
-                        setPinLocationMode('map');
-                        setPendingPinCoords(null);
-                        setPinLocationQuery('');
-                        setPinLocationSuggestions([]);
-                        setPinError(null);
-                        setSelectedHazard(null);
-                        setShowRoutePlanner(false);
-                        setIsAlertListExpanded(false);
-                      }
-                    }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-gray-100 flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 text-[#941329]" />
-                    <span>{isPinMode ? 'Cancel Hazard Pin' : 'Pin Road Hazard'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleUseMyLocation}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-gray-100 flex items-center justify-between gap-2 cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <LocateFixed className="w-4 h-4 text-[#1A73E8]" />
-                      <span>Use GPS Location</span>
-                    </span>
-                    <span className="text-[10px] font-semibold text-gray-400">
-                      {geoPermission === 'granted' ? 'On' : geoPermission === 'denied' ? 'Blocked' : 'Maps'}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowToolsMenu((v) => !v);
-                  setShowLayersPanel(false);
-                }}
-                className="h-11 px-5 rounded-full bg-[#89F358] hover:bg-[#7CE84B] active:scale-95 text-gray-950 font-bold text-sm shadow-[0_8px_22px_rgba(0,0,0,0.20)] border border-[#72DE42] flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <LayoutGrid className="w-4 h-4 stroke-[2.2]" />
-                <span>Tools</span>
-              </button>
-            </div>
-          </div>
-
           {/* WHITE ROUNDED BOTTOM SHEET (Matching reference "99 trails" sheet, clearing BottomNav) */}
           <div className="pointer-events-auto w-full bg-white rounded-t-[28px] shadow-[0_-8px_28px_rgba(0,0,0,0.14)] border-t border-gray-200/80 pb-[84px]">
             <div className="max-w-md mx-auto px-4">
@@ -1701,17 +1699,98 @@ export function LiveRouteMap({
                   className="w-full pb-3 pt-0.5 text-center cursor-pointer group"
                 >
                   <span className="text-sm font-bold text-gray-900 group-hover:text-black">
-                    {hazards.length} road {hazards.length === 1 ? 'alert' : 'alerts'}
+                    {visibleHazards.length} road {visibleHazards.length === 1 ? 'alert' : 'alerts'}
                   </span>
                 </button>
               )}
 
+              {/* 1b. Map Point Pick & Confirm Bar (shown after pressing "Click Map" until user confirms) */}
+              {(isPinMode || pendingPinCoords) && isAwaitingMapPick && (
+                <div className="pb-3 pt-0.5">
+                  {!pendingPinCoords ? (
+                    <div className="flex items-center justify-between gap-2 py-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin className="w-4 h-4 text-[#941329] shrink-0" />
+                        <span className="text-xs font-bold text-gray-900 truncate">
+                          Tap anywhere on the map to place your pin
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setIsAwaitingMapPick(false)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-950 hover:bg-gray-800 text-white text-[11px] font-bold cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Back</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelPinMode}
+                          className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                            <MapPin className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-gray-950 leading-snug break-words">
+                              {pendingPinCoords.area}
+                            </p>
+                            <p className="text-[11px] text-gray-500">
+                              Tap another point or drag pin to adjust
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCancelPinMode}
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer shrink-0"
+                          aria-label="Cancel pin"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingPinCoords(null);
+                            setIsAwaitingMapPick(false);
+                          }}
+                          className="py-2.5 px-3.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Back</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAwaitingMapPick(false)}
+                          className="flex-1 py-2.5 bg-[#89F358] hover:bg-[#7CE84B] text-gray-950 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Confirm Pin Location</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 2. Expanded Road Alerts List */}
-              {isAlertListExpanded && !pendingPinCoords && !selectedHazard && !showRoutePlanner && !activeRoute && (
+              {isAlertListExpanded && !isPinMode && !pendingPinCoords && !selectedHazard && !showRoutePlanner && !activeRoute && (
                 <div className="pb-3 max-h-[42vh] flex flex-col">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                     <span className="text-sm font-black text-gray-950">
-                      {hazards.length} road {hazards.length === 1 ? 'alert' : 'alerts'} ·{' '}
+                      {visibleHazards.length} road {visibleHazards.length === 1 ? 'alert' : 'alerts'} ·{' '}
                       {PROVINCE_VIEWPORTS[provinceFilter]?.label || 'All RSA'}
                     </span>
                     <button
@@ -1725,7 +1804,7 @@ export function LiveRouteMap({
                   </div>
 
                   <div className="mt-2 space-y-2 overflow-y-auto pr-1">
-                    {hazards.map((h) => (
+                    {visibleHazards.map((h) => (
                       <button
                         key={h.id}
                         type="button"
@@ -1738,7 +1817,7 @@ export function LiveRouteMap({
                       >
                         <div className="min-w-0">
                           <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                            {h.province} · {h.kind} · {timeAgo(h.createdAt)}
+                            {h.province} · {h.kind === 'alert' ? 'other' : h.kind} · {timeAgo(h.createdAt)}
                           </span>
                           <p className="text-xs font-bold text-gray-950 truncate">{h.title}</p>
                           <p className="text-[11px] text-gray-600 truncate">{h.area}</p>
@@ -1984,20 +2063,26 @@ export function LiveRouteMap({
                             ? 'bg-rose-50 border-rose-200 text-[#941329]'
                             : selectedHazard.kind === 'pothole'
                               ? 'bg-amber-50 border-amber-200 text-amber-700'
-                              : 'bg-blue-50 border-blue-200 text-blue-700'
+                              : selectedHazard.kind === 'alert'
+                                ? 'bg-purple-50 border-purple-200 text-purple-700'
+                                : 'bg-blue-50 border-blue-200 text-blue-700'
                         }`}
                       >
                         {selectedHazard.kind === 'accident' ? (
                           <Siren className="w-4 h-4" />
                         ) : selectedHazard.kind === 'pothole' ? (
                           <AlertTriangle className="w-4 h-4" />
+                        ) : selectedHazard.kind === 'alert' ? (
+                          <AlertCircle className="w-4 h-4" />
                         ) : (
                           <Car className="w-4 h-4" />
                         )}
                       </div>
                       <div className="min-w-0">
                         <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block">
-                          {selectedHazard.province} · {selectedHazard.kind} · {timeAgo(selectedHazard.createdAt)}
+                          {selectedHazard.province} ·{' '}
+                          {selectedHazard.kind === 'alert' ? 'other' : selectedHazard.kind} ·{' '}
+                          {timeAgo(selectedHazard.createdAt)}
                         </span>
                         <h4 className="text-sm font-black text-gray-950 truncate">{selectedHazard.title}</h4>
                         <p className="text-[11px] font-semibold text-gray-600">{selectedHazard.area}</p>
@@ -2014,6 +2099,16 @@ export function LiveRouteMap({
                   </div>
 
                   <p className="text-xs text-gray-700 mt-2 leading-relaxed">{selectedHazard.description}</p>
+
+                  {selectedHazard.imageUrl && (
+                    <div className="mt-2.5 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100">
+                      <img
+                        src={selectedHazard.imageUrl}
+                        alt={selectedHazard.title}
+                        className="w-full max-h-48 object-cover"
+                      />
+                    </div>
+                  )}
 
                   {(() => {
                     const unsolvedCount = selectedHazard.confirmations ?? 0;
@@ -2108,22 +2203,12 @@ export function LiveRouteMap({
                     );
                   })()}
 
-                  <div className="flex items-center gap-2 mt-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleRouteToHazard(selectedHazard)}
-                      className="w-full py-2 px-3 rounded-xl bg-[#89F358] hover:bg-[#7CE84B] text-gray-950 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Navigation className="w-3.5 h-3.5" />
-                      <span>Route Here</span>
-                    </button>
-                  </div>
                 </div>
               )}
 
               {/* 6. New Pin Submission Sheet (Click Map / Type Location / Current Network Location) */}
-              {(isPinMode || pendingPinCoords) && (
-                <div className="pb-3 max-h-[52vh] overflow-y-auto">
+              {(isPinMode || pendingPinCoords) && !isAwaitingMapPick && (
+                <div className="pb-3 max-h-[58vh] overflow-y-auto">
                   <div className="flex items-center justify-between mb-2.5">
                     <div className="flex items-center gap-2 min-w-0">
                       <MapPin className="w-4 h-4 text-[#941329] shrink-0" />
@@ -2146,165 +2231,70 @@ export function LiveRouteMap({
                     </button>
                   </div>
 
-                  {/* 3 Location Picker Methods */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPinLocationMode('map');
-                        setPinLocationSuggestions([]);
-                        setPinError(null);
-                      }}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                        pinLocationMode === 'map'
-                          ? 'bg-gray-950 text-white border-gray-950'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      <span>Click Map</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPinLocationMode('type');
-                        setPinError(null);
-                      }}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                        pinLocationMode === 'type'
-                          ? 'bg-gray-950 text-white border-gray-950'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Search className="w-3.5 h-3.5 shrink-0" />
-                      <span>Type Place</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => void handleUseNetworkLocationForPin()}
-                      disabled={isDetectingPinNetwork}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-65 ${
-                        pinLocationMode === 'network'
-                          ? 'bg-gray-950 text-white border-gray-950'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {isDetectingPinNetwork ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                      ) : (
-                        <Wifi className="w-3.5 h-3.5 shrink-0" />
-                      )}
-                      <span>Network</span>
-                    </button>
+                  {/* 1. Hazard Category Buttons (on top of location buttons) */}
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    {[
+                      { id: 'pothole', label: 'Pothole' },
+                      { id: 'accident', label: 'Accident' },
+                      { id: 'alert', label: 'Other' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPinKind(opt.id as 'pothole' | 'accident' | 'alert')}
+                        className={`py-2 px-2 rounded-xl text-xs font-bold border cursor-pointer transition-colors ${
+                          pinKind === opt.id
+                            ? 'bg-gray-950 text-white border-gray-950'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Typed Address / Location Picker */}
-                  {pinLocationMode === 'type' && (
-                    <div className="mb-2.5 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative flex-1 min-w-0">
-                          <input
-                            type="text"
-                            value={pinLocationQuery}
-                            onChange={(e) => setPinLocationQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                void handleSearchTypedPinLocation();
-                              }
-                            }}
-                            placeholder="Type road, suburb, or landmark..."
-                            className="w-full px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-950 focus:outline-none"
-                          />
-                          {isSearchingPinLocation && (
-                            <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleSearchTypedPinLocation()}
-                          className="px-3 py-2 rounded-xl bg-gray-950 text-white text-xs font-bold shrink-0 cursor-pointer"
-                        >
-                          Locate
-                        </button>
-                      </div>
-
-                      {pinLocationSuggestions.length > 0 && (
-                        <div className="bg-white border border-gray-200 rounded-xl shadow-md max-h-32 overflow-y-auto divide-y divide-gray-100">
-                          {pinLocationSuggestions.map((place, idx) => (
-                            <button
-                              key={`${place.lat}-${place.lon}-${idx}`}
-                              type="button"
-                              onClick={() => handleSelectTypedPinPlace(place)}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between gap-2 cursor-pointer"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-gray-900 truncate">{place.shortLabel}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{place.label}</p>
-                              </div>
-                              <span className="text-[10px] font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
-                                Pin
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  {pinKind === 'alert' && (
+                    <input
+                      type="text"
+                      value={pinOtherType}
+                      onChange={(e) => setPinOtherType(e.target.value)}
+                      placeholder="Type other hazard (e.g. Flooded road, Broken robot)"
+                      maxLength={60}
+                      className="w-full mb-2 px-3 py-2 text-xs font-semibold bg-purple-50/60 border border-purple-200 rounded-xl text-gray-900 placeholder:text-gray-500 focus:bg-white focus:border-purple-600 focus:outline-none"
+                    />
                   )}
 
                   {/* Selected Pin Location Status Pill */}
                   <div
-                    className={`mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center justify-between gap-2 ${
+                    className={`mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-start justify-between gap-2 ${
                       pendingPinCoords
                         ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
                         : 'bg-amber-50/80 border-amber-200 text-amber-900'
                     }`}
                   >
-                    <span className="font-semibold truncate">
+                    <span className="font-semibold leading-snug break-words min-w-0">
                       {pendingPinCoords
                         ? `Pinned at: ${pendingPinCoords.area}`
-                        : pinLocationMode === 'map'
-                          ? 'Tap anywhere on the map above to drop your pin'
-                          : pinLocationMode === 'type'
-                            ? 'Search & select a place above to drop your pin'
-                            : 'Detecting your current location through network...'}
+                        : 'Tap anywhere on the map above to drop your pin'}
                     </span>
                     {pendingPinCoords && (
-                      <span className="text-[10px] font-bold text-emerald-700 shrink-0">
+                      <span className="text-[10px] font-bold text-emerald-700 shrink-0 mt-0.5">
                         Shown on map
                       </span>
                     )}
                   </div>
 
                   <form onSubmit={handleSubmitHazardPin} className="space-y-2.5">
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'pothole', label: 'Pothole' },
-                        { id: 'accident', label: 'Accident' },
-                        { id: 'traffic', label: 'Traffic Jam' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setPinKind(opt.id as 'pothole' | 'accident' | 'traffic')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border cursor-pointer ${
-                            pinKind === opt.id
-                              ? 'bg-gray-950 text-white border-gray-950'
-                              : 'bg-gray-50 text-gray-700 border-gray-200'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
 
                     <input
                       type="text"
                       value={pinTitle}
                       onChange={(e) => setPinTitle(e.target.value)}
-                      placeholder="Short headline (e.g. Deep pothole left lane)"
+                      placeholder={
+                        pinKind === 'alert'
+                          ? 'Optional short headline (e.g. Left lane blocked)'
+                          : 'Short headline (e.g. Deep pothole left lane)'
+                      }
                       maxLength={80}
                       className="w-full px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-950 focus:outline-none"
                     />
@@ -2317,6 +2307,48 @@ export function LiveRouteMap({
                       maxLength={180}
                       className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-950 focus:outline-none"
                     />
+
+                    {pinImageUrl ? (
+                      <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                        <img
+                          src={pinImageUrl}
+                          alt="Attached condition preview"
+                          className="w-full h-28 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPinImageUrl(null)}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black cursor-pointer"
+                          aria-label="Remove attached photo"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <label className="py-2 px-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                          <Camera className="w-3.5 h-3.5 text-[#941329]" />
+                          <span>Camera</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={(e) => void handlePinImageSelect(e)}
+                            className="hidden"
+                          />
+                        </label>
+                        <label className="py-2 px-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                          <ImageIcon className="w-3.5 h-3.5 text-gray-700" />
+                          <span>Local Storage</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => void handlePinImageSelect(e)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    )}
 
                     {pinError && (
                       <p className="text-[11px] font-semibold text-[#941329]">{pinError}</p>

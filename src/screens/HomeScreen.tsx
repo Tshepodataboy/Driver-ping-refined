@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Shield,
+  Trash2,
 } from 'lucide-react';
 import {
   InteractiveProvincialPlateInput,
@@ -147,7 +148,9 @@ function getHazardTilePreview(lat: number, lon: number, zoom = 14) {
 export function HomeScreen() {
   const {
     user,
+    authToken,
     setActiveTab,
+    homeNavigationTick,
     setReportCategoryPreset,
     submitReport,
     setIsAuthModalOpen,
@@ -171,7 +174,7 @@ export function HomeScreen() {
   // Community Hub State (live public map alerts: traffic, accidents, potholes)
   const [communityHazards, setCommunityHazards] = useState<MapHazardPin[]>([]);
   const [isLoadingCommunity, setIsLoadingCommunity] = useState(true);
-  const [communityFilter, setCommunityFilter] = useState<'all' | 'traffic' | 'accident' | 'pothole'>('all');
+  const [communityFilter, setCommunityFilter] = useState<'all' | 'traffic' | 'accident' | 'pothole' | 'alert'>('all');
   const [communityProvince, setCommunityProvince] = useState<string>('ALL');
   const [communityCity, setCommunityCity] = useState<string>('ALL');
   const [showCommunityFilterModal, setShowCommunityFilterModal] = useState(false);
@@ -188,6 +191,15 @@ export function HomeScreen() {
     getStoredHazardVotes()
   );
   const [focusedMapHazard, setFocusedMapHazard] = useState<MapHazardPin | null>(null);
+  const [confirmDeleteHazardId, setConfirmDeleteHazardId] = useState<string | null>(null);
+  const [deletingHazardId, setDeletingHazardId] = useState<string | null>(null);
+  const [communityDeleteError, setCommunityDeleteError] = useState<string | null>(null);
+
+  // Community Hub Photo Lightbox State
+  const [expandedCommunityPhoto, setExpandedCommunityPhoto] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -551,13 +563,17 @@ export function HomeScreen() {
   const fetchCommunityHazards = async () => {
     try {
       const voterId = encodeURIComponent(getClientVoterId());
-      const res = await fetch(`/api/map/hazards?province=ALL&kind=all&voterId=${voterId}`);
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      const res = await fetch(`/api/map/hazards?province=ALL&kind=all&voterId=${voterId}`, {
+        headers,
+      });
       if (res.ok) {
         const data = await res.json();
         const rows: MapHazardPin[] = Array.isArray(data?.hazards) ? data.hazards : [];
-        setCommunityHazards(
-          rows.filter((h) => h.kind === 'traffic' || h.kind === 'accident' || h.kind === 'pothole')
-        );
+        setCommunityHazards(rows);
         if (data?.userVotes && typeof data.userVotes === 'object') {
           setHazardVotes(replaceAllStoredHazardVotes(data.userVotes));
         } else {
@@ -572,8 +588,32 @@ export function HomeScreen() {
   };
 
   useEffect(() => {
+    setConfirmDeleteHazardId(null);
+    setCommunityDeleteError(null);
     void fetchCommunityHazards();
-  }, []);
+  }, [user?.id, authToken]);
+
+  // Every time the user presses the Home button (or Driver Ping header logo),
+  // exit the Map view and any open Home modals so they always land on Home.
+  useEffect(() => {
+    if (homeNavigationTick === 0) return;
+    if (showMapModal) {
+      setShowMapModal(false);
+      setFocusedMapHazard(null);
+      void fetchCommunityHazards();
+    }
+    setShowCommunityFilterModal(false);
+    setExpandedCommunityPhoto(null);
+    if (!isInEmergencyCall) {
+      setShowEmergencyModal(false);
+    }
+    setShowSupportModal(false);
+    setShowGuideModal(false);
+    setIsReportOpen(false);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [homeNavigationTick]);
 
   const handleVoteHazardAnalysis = async (
     e: React.MouseEvent,
@@ -583,9 +623,13 @@ export function HomeScreen() {
     e.stopPropagation();
     setConfirmingHazardId(id);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
       const res = await fetch(`/api/map/hazards/${id}/analysis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ status, voterId: getClientVoterId() }),
       });
       const data = await res.json().catch(() => null);
@@ -597,6 +641,38 @@ export function HomeScreen() {
       }
     } finally {
       setConfirmingHazardId(null);
+    }
+  };
+
+  const handleDeleteCommunityHazard = async (e: React.MouseEvent, hazardId: string) => {
+    e.stopPropagation();
+    if (!authToken) {
+      setCommunityDeleteError('Please sign in as the main reporter to delete this report.');
+      return;
+    }
+    setDeletingHazardId(hazardId);
+    setCommunityDeleteError(null);
+    try {
+      const res = await fetch(`/api/map/hazards/${encodeURIComponent(hazardId)}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCommunityDeleteError(
+          data?.error || 'Only the main reporter is allowed to delete this report.'
+        );
+        return;
+      }
+      setCommunityHazards((prev) => prev.filter((h) => h.id !== hazardId));
+      setConfirmDeleteHazardId((prev) => (prev === hazardId ? null : prev));
+      setFocusedMapHazard((prev) => (prev?.id === hazardId ? null : prev));
+    } catch {
+      setCommunityDeleteError('Could not delete report. Please try again.');
+    } finally {
+      setDeletingHazardId(null);
     }
   };
 
@@ -933,19 +1009,19 @@ export function HomeScreen() {
 
       {/* 2. COMMUNITY HUB (Publicly shared map road alerts: traffic, accidents, potholes) */}
       <div className="mt-5">
-        <div className="flex items-center justify-between px-1 mb-2.5">
-          <div>
+        <div className="flex items-center justify-between gap-2 px-1 mb-2.5">
+          <div className="min-w-0">
             <h2 className="text-lg font-black font-display tracking-tight text-white leading-tight">
               Community Hub
             </h2>
-            <p className="text-[11px] text-white/75 font-medium">
-              Public traffic, accidents & potholes from the map
+            <p className="text-[11px] text-white/75 font-medium truncate">
+              Public road updates, alerts &amp; photos
             </p>
           </div>
           <button
             type="button"
             onClick={openCommunityFilterModal}
-            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition-colors cursor-pointer shrink-0 border ${
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-colors cursor-pointer shrink-0 border ${
               communityProvince !== 'ALL' || communityCity !== 'ALL'
                 ? 'bg-white text-gray-950 border-white shadow-sm'
                 : 'text-white/90 hover:text-white bg-white/10 hover:bg-white/20 border-white/15'
@@ -970,6 +1046,7 @@ export function HomeScreen() {
             { id: 'traffic', label: 'Traffic' },
             { id: 'accident', label: 'Accidents' },
             { id: 'pothole', label: 'Potholes' },
+            { id: 'alert', label: 'Other' },
           ].map((tab) => {
             const active = communityFilter === tab.id;
             return (
@@ -977,7 +1054,7 @@ export function HomeScreen() {
                 key={tab.id}
                 type="button"
                 onClick={() =>
-                  setCommunityFilter(tab.id as 'all' | 'traffic' | 'accident' | 'pothole')
+                  setCommunityFilter(tab.id as 'all' | 'traffic' | 'accident' | 'pothole' | 'alert')
                 }
                 className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer shrink-0 border ${
                   active
@@ -1083,7 +1160,7 @@ export function HomeScreen() {
                         }
                       : hazard.kind === 'alert'
                         ? {
-                            label: 'Alert',
+                            label: 'Other',
                             icon: <AlertCircle className="w-3 h-3 text-purple-600" />,
                             pinIcon: <AlertCircle className="w-3.5 h-3.5 text-[#C084FC] rotate-45" />,
                           }
@@ -1126,23 +1203,51 @@ export function HomeScreen() {
                       {/* Left Metadata & Copy Column */}
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                              {hazard.province} · {getRelativeTime(hazard.createdAt)}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-[10px] font-semibold">
-                              {kindMeta.icon}
-                              <span>{kindMeta.label}</span>
-                            </span>
+                          <div className="flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                                {hazard.province} · {getRelativeTime(hazard.createdAt)}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 text-[10px] font-semibold">
+                                {kindMeta.icon}
+                                <span>{kindMeta.label}</span>
+                              </span>
+                            </div>
+                            {hazard.canDelete && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCommunityDeleteError(null);
+                                  setConfirmDeleteHazardId((prev) =>
+                                    prev === hazard.id ? null : hazard.id
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-rose-700 hover:bg-rose-50 border border-rose-200/80 transition-colors cursor-pointer shrink-0"
+                                title="Delete your report"
+                                aria-label={`Delete report ${hazard.title}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete</span>
+                              </button>
+                            )}
                           </div>
 
                           <h3 className="text-[13px] font-black font-display text-gray-950 leading-snug mt-1.5 line-clamp-2 group-hover:text-[#941329] transition-colors">
                             {hazard.title}
                           </h3>
 
-                          <p className="text-[11px] text-gray-500 italic truncate mt-0.5">
-                            {hazard.area} — {hazard.description}
+                          <p className="text-[11px] font-semibold text-gray-700 mt-1 flex items-start gap-1 leading-snug">
+                            <MapPin className="w-3 h-3 text-[#941329] shrink-0 mt-0.5" />
+                            <span className="break-words">{hazard.area}</span>
                           </p>
+
+                          {hazard.description &&
+                            hazard.description !== `Reported near ${hazard.area}` && (
+                              <p className="text-[11px] text-gray-500 italic line-clamp-2 mt-0.5 leading-snug">
+                                {hazard.description}
+                              </p>
+                            )}
                         </div>
                       </div>
 
@@ -1170,6 +1275,74 @@ export function HomeScreen() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Reporter-Only Delete Confirmation Bar */}
+                    {hazard.canDelete && confirmDeleteHazardId === hazard.id && (
+                      <div
+                        className="mt-2.5 p-2.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-[11px] font-bold text-rose-900">
+                          Delete your report permanently?
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteHazardId(null);
+                              setCommunityDeleteError(null);
+                            }}
+                            disabled={deletingHazardId === hazard.id}
+                            className="px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-[11px] font-bold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => void handleDeleteCommunityHazard(e, hazard.id)}
+                            disabled={deletingHazardId === hazard.id}
+                            className="px-2.5 py-1 rounded-lg bg-[#941329] hover:bg-[#7A0F21] disabled:opacity-60 text-white text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            {deletingHazardId === hazard.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Deleting...</span>
+                              </>
+                            ) : (
+                              <span>Confirm</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {hazard.canDelete && confirmDeleteHazardId === hazard.id && communityDeleteError && (
+                      <p className="mt-1.5 text-[11px] font-semibold text-[#941329]">
+                        {communityDeleteError}
+                      </p>
+                    )}
+
+                    {/* Shared Community Photo */}
+                    {hazard.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedCommunityPhoto({
+                            url: hazard.imageUrl!,
+                            title: hazard.title,
+                          })
+                        }
+                        className="mt-2.5 block w-full rounded-2xl overflow-hidden border border-gray-200/80 bg-gray-100 cursor-pointer group/photo"
+                      >
+                        <img
+                          src={hazard.imageUrl}
+                          alt={hazard.title}
+                          loading="lazy"
+                          className="w-full h-44 object-cover group-hover/photo:scale-[1.02] transition-transform duration-300"
+                        />
+                      </button>
+                    )}
 
                     {/* Incident Report Analysis */}
                     <div className="mt-3 pt-2.5 border-t border-gray-100">
@@ -1999,6 +2172,36 @@ export function HomeScreen() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5d. FULL-SCREEN PHOTO LIGHTBOX FOR COMMUNITY HUB IMAGES */}
+      {expandedCommunityPhoto && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setExpandedCommunityPhoto(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setExpandedCommunityPhoto(null)}
+            aria-label="Close photo preview"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border border-white/20 cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div
+            className="max-w-lg w-full flex flex-col items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={expandedCommunityPhoto.url}
+              alt={expandedCommunityPhoto.title}
+              className="w-full max-h-[78vh] object-contain rounded-2xl shadow-2xl"
+            />
+            <p className="text-xs font-bold text-white/90 text-center px-3">
+              {expandedCommunityPhoto.title}
+            </p>
           </div>
         </div>
       )}

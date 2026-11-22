@@ -1419,7 +1419,7 @@ apiRouter.get('/map/hazards', optionalAuth, async (req: Request, res: Response) 
   try {
     const province = typeof req.query.province === 'string' ? req.query.province : 'ALL';
     const kind = typeof req.query.kind === 'string' ? req.query.kind : 'all';
-    const authUserId = (req as AuthenticatedRequest).user?.id;
+    const authUserId = (req as AuthenticatedRequest).user?.id || null;
     const rawVoterId = typeof req.query.voterId === 'string' ? req.query.voterId.trim().slice(0, 64) : '';
     const voterKey = authUserId
       ? `user:${authUserId}`
@@ -1428,7 +1428,7 @@ apiRouter.get('/map/hazards', optionalAuth, async (req: Request, res: Response) 
         : '';
 
     const [hazards, userVotes] = await Promise.all([
-      db.listMapHazards({ province, kind }),
+      db.listMapHazards({ province, kind, viewerUserId: authUserId }),
       voterKey ? db.getUserHazardVotes(voterKey) : Promise.resolve({}),
     ]);
     return res.json({ hazards, userVotes });
@@ -1439,7 +1439,7 @@ apiRouter.get('/map/hazards', optionalAuth, async (req: Request, res: Response) 
 
 apiRouter.post('/map/hazards', optionalAuth, async (req: Request, res: Response) => {
   try {
-    const { kind, title, description, area, province, lat, lon, severity } = req.body || {};
+    const { kind, title, description, area, province, lat, lon, severity, imageUrl } = req.body || {};
     const validKinds: HazardKind[] = ['pothole', 'accident', 'traffic', 'alert'];
     if (!validKinds.includes(kind)) {
       return res.status(400).json({ error: 'Invalid hazard kind.' });
@@ -1453,6 +1453,22 @@ apiRouter.post('/map/hazards', optionalAuth, async (req: Request, res: Response)
       return res.status(400).json({ error: 'Please provide a brief hazard title.' });
     }
 
+    let safeImageUrl: string | null = null;
+    if (typeof imageUrl === 'string' && imageUrl.trim()) {
+      const trimmedImage = imageUrl.trim();
+      const isValidImagePrefix =
+        trimmedImage.startsWith('data:image/') ||
+        trimmedImage.startsWith('https://') ||
+        trimmedImage.startsWith('http://');
+      if (!isValidImagePrefix) {
+        return res.status(400).json({ error: 'Invalid image format.' });
+      }
+      if (trimmedImage.length > 3_500_000) {
+        return res.status(400).json({ error: 'Image is too large. Please choose a smaller photo.' });
+      }
+      safeImageUrl = trimmedImage;
+    }
+
     const reporterId = (req as AuthenticatedRequest).user?.id || null;
     const hazard = await db.createMapHazard({
       kind,
@@ -1463,6 +1479,7 @@ apiRouter.post('/map/hazards', optionalAuth, async (req: Request, res: Response)
       lat: parsedLat,
       lon: parsedLon,
       severity: severity === 'low' || severity === 'high' ? severity : 'medium',
+      imageUrl: safeImageUrl,
       reporterId,
     });
 
@@ -1477,6 +1494,38 @@ apiRouter.post('/map/hazards', optionalAuth, async (req: Request, res: Response)
     return res.status(201).json({ success: true, hazard });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Failed to save hazard pin.' });
+  }
+});
+
+apiRouter.delete('/map/hazards/:id', authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const hazardId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!hazardId) {
+      return res.status(400).json({ error: 'Valid report ID is required.' });
+    }
+
+    const result = await db.deleteMapHazardByReporter(hazardId, user.id);
+    if (result.status === 'not_found') {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
+    if (result.status === 'forbidden') {
+      return res.status(403).json({
+        error: 'Only the main reporter is allowed to delete this report.',
+      });
+    }
+
+    await db.createAuditLog({
+      actorId: user.id,
+      actionType: 'MAP_HAZARD_DELETED',
+      targetId: hazardId,
+      targetType: 'map_hazard',
+      detailsJson: result.hazard || {},
+    }).catch(() => {});
+
+    return res.json({ success: true, deletedId: hazardId });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Failed to delete report.' });
   }
 });
 
@@ -1498,7 +1547,7 @@ apiRouter.post('/map/hazards/:id/analysis', optionalAuth, async (req: Request, r
     if (status !== 'unsolved' && status !== 'being_solved' && status !== 'false_report') {
       return res.status(400).json({ error: 'Invalid status. Expected unsolved, being_solved, or false_report.' });
     }
-    const authUserId = (req as AuthenticatedRequest).user?.id;
+    const authUserId = (req as AuthenticatedRequest).user?.id || null;
     const rawVoterId = typeof req.body?.voterId === 'string' ? req.body.voterId.trim().slice(0, 64) : '';
     const voterKey = authUserId
       ? `user:${authUserId}`
@@ -1506,7 +1555,7 @@ apiRouter.post('/map/hazards/:id/analysis', optionalAuth, async (req: Request, r
         ? `client:${rawVoterId}`
         : `ip:${req.ip || 'anon'}`;
 
-    const result = await db.voteMapHazardAnalysis(req.params.id, status, voterKey);
+    const result = await db.voteMapHazardAnalysis(req.params.id, status, voterKey, authUserId);
     if (!result) {
       return res.status(404).json({ error: 'Hazard pin not found.' });
     }

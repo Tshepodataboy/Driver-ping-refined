@@ -49,8 +49,10 @@ export interface MapHazardPin {
   confirmations: number;
   falseReportCount: number;
   beingSolvedCount: number;
+  imageUrl?: string | null;
   createdAt: string;
   isUserPinned?: boolean;
+  canDelete?: boolean;
 }
 
 const FREEROUTE_BASE_URL = 'https://api.maps.freeroute.org';
